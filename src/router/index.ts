@@ -6,23 +6,46 @@ import {
 import type { RouteRecordRaw } from 'vue-router'
 
 import type { App } from 'vue'
-import { landingRoutes } from '@/modules/landing/router'
-import { workspaceRoutes } from '@/modules/workspace/router'
 
 export const routes: RouteRecordRaw[] = [
     {
-        path: '/:lang',
+        path: '/',
+        component: () => import('@/pages/ShellLayout.vue'),
         children: [
-            ...landingRoutes,
-            ...workspaceRoutes,
+            {
+                path: '',
+                redirect: '/study',
+            },
+            {
+                name: 'study',
+                path: 'study',
+                component: () => import('@/pages/StudyPage.vue'),
+            },
+            {
+                name: 'practice',
+                path: 'practice',
+                component: () => import('@/pages/PracticePage.vue'),
+            },
+            {
+                name: 'dictionary',
+                path: 'dictionary',
+                component: () => import('@/pages/DictionaryPage.vue'),
+            },
+            {
+                name: 'progress',
+                path: 'progress',
+                component: () => import('@/pages/ProgressPage.vue'),
+            },
+            {
+                name: 'settings',
+                path: 'settings',
+                component: () => import('@/pages/SettingsPage.vue'),
+            },
         ],
     },
-    // For fixing router warn in tests
     {
-        path: '',
-        redirect(to) {
-            return { name: to.name ?? EPageName.LANDING, params: { lang: BASE_INTERFACE_LANGUAGE_NAME } }
-        },
+        path: '/:pathMatch(.*)*',
+        redirect: '/study',
     },
 ]
 
@@ -39,10 +62,6 @@ export const setupRouter = async (app: App<Element>, test = false) => {
     app.use(router)
 
     await router.isReady()
-
-    if (!router.currentRoute.value.params.lang) {
-        await router.push({ name: router.currentRoute.value.name ?? EPageName.LANDING, params: { lang: BASE_INTERFACE_LANGUAGE_NAME } })
-    }
 
     return router
 }

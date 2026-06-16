@@ -1,2 +1,14 @@
 dist
 node_modules
+src/components/InterfaceLanguageSelector
+src/composables
+src/hooks
+src/modules
+src/plugins/errorHandler.ts
+src/plugins/firebase.ts
+src/plugins/__mocks__
+src/plugins/i18n.ts
+src/plugins/services.ts
+src/router/guard
+src/services
+src/store/modules

@@ -1,84 +1,53 @@
-# Languages Learner App
+# HanYu Cards
 
-## Overview
+Offline-first Mandarin Chinese learning app for adult HSK learners. The app was rebuilt from the MIT-licensed `languages-learner/web` Vue 3 codebase and now focuses on Chinese vocabulary, smart review, and an optional AI tutor.
 
-This project is a languages learning application that aims to provide an easy and effective way to learn new languages.
-It includes the following features:
+## Features
 
-- Profile Page: Keep track of your progress and see your achievements.
-- Settings Page: Customize the app to your preferences.
-- Dictionary Page: Store and manage your translations.
-- Trainings Page: Develop your language skills with interactive exercises. (Not ready)
+- HSK 1-3 vocabulary set with simplified, traditional, pinyin, English meanings, radicals, tags, and review status.
+- Flashcard study with `Again`, `Hard`, `Good`, and `Easy` spaced-review scheduling.
+- Multiple-choice practice, searchable dictionary, daily goal, accuracy, due count, and level progress.
+- Device speech synthesis for Mandarin pronunciation.
+- Offline-first progress storage through IndexedDB/localforage.
+- Floating AI tutor with a secure backend proxy and offline fallback.
+- PWA plus Capacitor configuration for Android and iOS packaging.
 
-## Live Demo
+## Development
 
-Check out the live demo of the app at https://languages-learner.web.app/
+Use Node.js 20 or newer.
 
-## 🛠 Built with
+```bash
+npm install
+npm run dev
+```
 
-- [Vue 3][vue]
-- [Vite][vite]
-- [TypeScript][typescript]
-- [Pinia][pinia]: A lightweight state management library for Vue 3.
-- [i18n][i18n]: An internationalization library.
-    - **Translations Stored in Firestore**: this allows for scalable and flexible management of multilingual content.
-- [Firebase][firebase]
-  - [Firebase Authentication][firebase-authentication]
-  - [Firestore Database][firestore-database]
-  - [Firebase Remote Config][firebase-remote-config]
-  - [Firebase Hosting][firebase-hosting]
-- [Naive-UI][naive-ui]: A set of UI components for Vue 3.
+To run the AI assistant backend in mock mode:
 
-- [Docker][docker]
-  - Docker Compose files provided for both development and production environments.
-  - Although not currently in use, these Docker Compose files serve as examples for potential containerization of application in the future.
+```bash
+cp .env.example .env
+npm run dev:api
+```
 
-- **PWA Support**
-  - [VitePWA][vite-pwa]: Integrate Progressive Web App (PWA) features
+For frontend and API together:
 
-- **Automated Tests**
-    - [Vitest][vitest]: Unit and Component Tests.
-    - [Cypress][cypress] + [Cypress Cloud][cypress-cloud]: End-to-end Tests  across multiple browsers and device sizes.
-      - **Include visual regression tests** using [cypress-visual-regression][cypress-visual-regression]
-      - **Include performance tests** using [Lighthouse (cypress-audit)][cypress-audit]
-        - Currently only for landing page to demonstrate the concept.
+```bash
+npm run dev:all
+```
 
-- **CI/CD**
-  - Automated Tests: Unit, Component and End-to-end Tests.
-  - Deploy:
-    - Preview website for pull-requests and delete on PR close
-    - Production deploy
-  - UI Performance Testing with **Lighthouse**
-  - Reject pending deployments on PR close
+Set `OPENAI_API_KEY` and `AI_MOCK=false` in `.env` for production AI responses. The frontend uses `VITE_ASSISTANT_API_URL` and never stores provider keys.
 
-- **Code Quality Tools**
-    - [ESLint][eslint]
-    - [Stylelint][stylelint]
+## Build
 
-[vue]: https://vuejs.org/
-[vite]: https://vitejs.dev/
-[typescript]: https://typescriptlang.org
-[pinia]: https://pinia.vuejs.org/
-[i18n]: https://vue-i18n.intlify.dev/
-[firebase]: https://firebase.google.com/
-[firebase-authentication]: https://firebase.google.com/docs/auth
-[firestore-database]: https://firebase.google.com/docs/firestore
-[firebase-remote-config]: https://firebase.google.com/docs/remote-config
-[firebase-hosting]: https://firebase.google.com/docs/hosting
-[naive-ui]: https://www.naiveui.com/en-US/os-theme
-[docker]: https://www.docker.com/
-[vite-pwa]: https://github.com/antfu/vite-plugin-pwa
-[vitest]: https://vitest.dev/
-[cypress]: https://www.cypress.io/
-[cypress-cloud]: https://cloud.cypress.io/projects/fm6ypm/runs
-[cypress-visual-regression]: https://github.com/cypress-visual-regression/cypress-visual-regression
-[cypress-audit]: https://github.com/mfrachet/cypress-audit
-[eslint]: https://eslint.org/
-[stylelint]: https://stylelint.io/
+```bash
+npm run build
+npx cap sync
+```
 
-## Preview (Mobile)
+Android and iOS release details are in [docs/release-checklist.md](docs/release-checklist.md).
 
-<p align="center">
-  <img src="src/assets/images/preview-dictionary-page-mobile.webp" alt="preview-dictionary-page-mobile" width="200" style="margin-right: 20px;">
-  <img src="src/assets/images/preview-profile-page-mobile.webp" alt="preview-profile-page-mobile" width="200">
-</p>
+## Compliance Notes
+
+- No Baicizhan branding, assets, or proprietary word data are used.
+- Base app attribution and HSK dataset attribution are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- The default release has no account, no ads, and no tracking.
+- The privacy policy draft is available at `public/privacy.html` and must be hosted under the publisher domain before store submission.

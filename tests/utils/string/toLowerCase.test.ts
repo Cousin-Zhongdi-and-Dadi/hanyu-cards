@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { toLowerCase } from '@/utils/string/toLowerCase'
 
 it('util/string/toLowerCase', () => {
     expect(toLowerCase('')).toBe('')

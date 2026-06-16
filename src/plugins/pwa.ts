@@ -1,6 +1,8 @@
 export const setupPWA = async () => {
-    if ('serviceWorker' in navigator) {
-        if (['1', 'true'].includes(import.meta.env.VITE_PWA))
-            await navigator.serviceWorker.register('/sw.js')
-    }
+    if (!('serviceWorker' in navigator) || import.meta.env.MODE === 'test')
+        return
+
+    const { registerSW } = await import('virtual:pwa-register')
+
+    registerSW({ immediate: true })
 }

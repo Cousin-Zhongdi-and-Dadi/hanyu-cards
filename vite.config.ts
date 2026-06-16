@@ -2,9 +2,6 @@
 import { defineConfig, splitVendorChunkPlugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
-import Components from 'unplugin-vue-components/vite'
-import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
-import AutoImport from 'unplugin-auto-import/vite'
 // https://github.com/TypeStrong/ts-node/issues/1096
 import * as dotenv from 'dotenv'
 import * as path from 'path'
@@ -28,44 +25,24 @@ export default defineConfig({
     },
     plugins: [
         vue(),
-        AutoImport({
-            dts: './auto-generated-imports/auto-imports.d.ts',
-            vueTemplate: true,
-            imports: ['vue', 'vue-router', 'pinia',
-                { from: '@/plugins/i18n.ts', imports: ['useI18n'] },
-                { from: '@/plugins/services.ts', imports: ['useAuthenticationService', 'useDbStore', 'useConfigService'] },
-            ],
-            dirs: [
-                './src/utils/**',
-                './src/const/**',
-                './src/enums/**',
-                './src/store/modules',
-                './src/composables/**',
-            ],
-            eslintrc: {
-                enabled: true,
-                filepath: './auto-generated-imports/.eslintrc-auto-import.json',
-            },
-        }),
-        Components({
-            dts: './auto-generated-imports/components.d.ts',
-            resolvers: [NaiveUiResolver()],
-        }),
         VitePWA({
-            disable: !['1', 'true'].includes(process.env.VITE_PWA),
+            disable: process.env.NODE_ENV === 'test',
             injectRegister: null,
             registerType: 'autoUpdate',
-            includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+            includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'privacy.html'],
             manifest: {
-                name: 'Languages Learner',
-                short_name: 'LLearner',
+                name: 'HanYu Cards',
+                short_name: 'HanYu',
+                description: 'HSK 1-3 Mandarin flashcards with smart review and an optional AI tutor.',
                 icons:[
                     { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
                     { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
                 ],
-                theme_color: '#18a058',
-                background_color: '#ffffff',
+                theme_color: '#167c80',
+                background_color: '#f6f8f4',
                 display: 'standalone',
+                orientation: 'portrait',
+                categories: ['education'],
             },
         }),
         splitVendorChunkPlugin(),
