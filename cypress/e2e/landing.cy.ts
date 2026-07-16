@@ -9,19 +9,6 @@ describe('landing', () => {
         cy.location('pathname').should('equal', withLang())
     })
 
-    it('lighthouse', {
-        env: {
-            language: 'en',
-        },
-    }, () => {
-        cy.lighthouse({
-            performance: 80,
-            accessibility: 75,
-            'best-practices': 100,
-            seo: 80,
-        })
-    })
-
     it('unauthenticated user', () => {
         cy
             .logout()

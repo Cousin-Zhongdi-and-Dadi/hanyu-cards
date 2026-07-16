@@ -39,6 +39,8 @@ async function send() {
         message,
         context: {
             activeWord: content.activeWord,
+            activeScenario: content.activeScenario,
+            learnerLevel: content.selectedLevel,
             dueCount: dueCount.value,
             masteredCount: progress.masteredCount,
             recentMistakes: recentMistakes.value,
@@ -92,6 +94,12 @@ function quickAsk(message: string) {
                 <button
                     @click="quickAsk('Quiz me on my recent mistakes.')"
                     type="button">Quiz me</button>
+                <button
+                    @click="quickAsk('Role-play the current real-life scenario with me. Start with one short line in Chinese and wait for my reply.')"
+                    type="button">Role-play</button>
+                <button
+                    @click="quickAsk('Make a focused 10-minute study plan from my level, due words, and recent mistakes.')"
+                    type="button">My plan</button>
             </div>
 
             <div class="assistant__messages">

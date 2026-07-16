@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import {
     BarChartOutline,
     BookOutline,
+    CompassOutline,
     LibraryOutline,
     OptionsOutline,
     SchoolOutline,
@@ -14,10 +15,10 @@ const progress = useProgressStore()
 
 const navItems = [
     { to: '/study', label: 'Study', icon: SchoolOutline },
+    { to: '/scenarios', label: 'Missions', icon: CompassOutline },
     { to: '/practice', label: 'Practice', icon: BookOutline },
     { to: '/dictionary', label: 'Words', icon: LibraryOutline },
     { to: '/progress', label: 'Progress', icon: BarChartOutline },
-    { to: '/settings', label: 'Settings', icon: OptionsOutline },
 ]
 
 const todayPercent = computed(() => {
@@ -36,12 +37,21 @@ onMounted(async () => {
                 <p class="eyebrow">HSK 1-3 Mandarin</p>
                 <h1>HanYu Cards</h1>
             </div>
-            <div
-                class="topbar__meter"
-                aria-label="Daily progress">
-                <strong>{{ progress.todaySession.reviewed }}/{{ progress.dailyGoal }}</strong>
-                <span>today</span>
-                <div><i :style="{ width: `${todayPercent}%` }"></i></div>
+            <div class="topbar__actions">
+                <div
+                    class="topbar__meter"
+                    aria-label="Daily progress">
+                    <strong>{{ progress.todaySession.reviewed }}/{{ progress.dailyGoal }}</strong>
+                    <span>today</span>
+                    <div><i :style="{ width: `${todayPercent}%` }"></i></div>
+                </div>
+                <RouterLink
+                    to="/settings"
+                    class="topbar__settings"
+                    aria-label="Learning settings"
+                    title="Learning settings">
+                    <OptionsOutline></OptionsOutline>
+                </RouterLink>
             </div>
         </header>
 

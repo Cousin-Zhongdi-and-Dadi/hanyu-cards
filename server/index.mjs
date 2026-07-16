@@ -43,8 +43,18 @@ function rateLimit(req, res, next) {
 
 function localTutorReply({ message, context }) {
     const word = context?.activeWord
+    const scenario = context?.activeScenario
+    if (scenario && message.toLocaleLowerCase().includes('role-play')) {
+        const firstLine = scenario.dialogue?.[0]
+
+        return [
+            `Let us practice “${scenario.title}”. I will play the other speaker.`,
+            firstLine ? `${firstLine.speaker}: ${firstLine.zh}\n${firstLine.pinyin}` : `Mission: ${scenario.mission}`,
+            'Reply in Chinese. I will keep the exchange short and correct one important issue at a time.',
+        ].join('\n\n')
+    }
     if (!word)
-        return 'Pick a word in Study or Dictionary, then ask me for a pronunciation tip, mnemonic, or short quiz.'
+        return 'Pick a word or mission, then ask me for a pronunciation tip, mnemonic, review plan, or role-play.'
 
     const mistakeCount = context?.recentMistakes?.length ?? 0
 
@@ -74,6 +84,7 @@ app.post('/api/assistant/chat', rateLimit, async (req, res) => {
     try {
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
         const activeWord = context?.activeWord
+        const activeScenario = context?.activeScenario
         const recentMistakes = Array.isArray(context?.recentMistakes)
             ? context.recentMistakes.map((word) => `${word.simplified} (${word.pinyin})`).join(', ')
             : 'none'
@@ -85,6 +96,8 @@ app.post('/api/assistant/chat', rateLimit, async (req, res) => {
                 'You are a concise Mandarin Chinese tutor for adult foreign learners.',
                 'Explain in clear English, include Chinese characters and pinyin when useful, and keep answers under 180 words.',
                 'Use the active HSK word context when provided. Do not invent user progress data.',
+                'Adapt vocabulary and sentence length to the learner HSK level. For role-play, stay in the active scenario, send one turn at a time, and wait for the learner.',
+                'Correct at most one important issue per role-play turn, then give a natural example.',
                 'If asked for a quiz, provide one small exercise and the answer separately.',
             ].join(' '),
             input: [
@@ -93,6 +106,14 @@ app.post('/api/assistant/chat', rateLimit, async (req, res) => {
                     content: JSON.stringify({
                         userMessage: message,
                         activeWord,
+                        activeScenario: activeScenario ? {
+                            title: activeScenario.title,
+                            chineseTitle: activeScenario.chineseTitle,
+                            mission: activeScenario.mission,
+                            dialogue: activeScenario.dialogue,
+                            targetExpressions: activeScenario.task?.expectedKeywords,
+                        } : undefined,
+                        learnerLevel: context?.learnerLevel,
                         dueCount: context?.dueCount,
                         masteredCount: context?.masteredCount,
                         recentMistakes,

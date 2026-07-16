@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import WordCard from '@/components/WordCard.vue'

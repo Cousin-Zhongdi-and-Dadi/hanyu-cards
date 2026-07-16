@@ -1,7 +1,7 @@
 /// <reference types="cypress" />
 
 import { elSelector, isMobile } from '@@/cypress/utils'
-import { type ScreenshotOptions } from 'cypress-visual-regression'
+import { type PluginCommandOptions } from 'cypress-visual-regression/dist/plugin'
 import {
     EDataTest,
     EDataTestAttr,
@@ -11,7 +11,7 @@ import { EPageName } from '@/enums/EPageName'
 import { type EWordStatus } from '@/services/dbstore/dto/Words'
 import { WordStatusTranslationKey } from '@/modules/workspace/modules/words/composables/useWordStatuses'
 
-import '@cypress-audit/lighthouse/commands'
+type ScreenshotOptions = Exclude<PluginCommandOptions, number>
 
 Cypress.Commands.add('el', (dataTest: EDataTest, options?: Partial<Cypress.Loggable & Cypress.Timeoutable & Cypress.Withinable & Cypress.Shadow>) =>
     cy.get(elSelector(dataTest), options))

@@ -16,6 +16,7 @@ interface PersistedProgressState {
     records: Record<string, WordProgress>
     sessions: StudySession[]
     dailyGoal: number
+    completedScenarioIds?: string[]
 }
 
 const STORE_KEY = 'hanyu-progress-v1'
@@ -36,6 +37,7 @@ export const useProgressStore = defineStore('progress', {
         records: {} as Record<string, WordProgress>,
         sessions: [] as StudySession[],
         dailyGoal: 24,
+        completedScenarioIds: [] as string[],
         hydrated: false,
     }),
     getters: {
@@ -70,16 +72,18 @@ export const useProgressStore = defineStore('progress', {
                 this.records = saved.records ?? {}
                 this.sessions = saved.sessions ?? []
                 this.dailyGoal = saved.dailyGoal ?? 24
+                this.completedScenarioIds = saved.completedScenarioIds ?? []
             }
 
             this.hydrated = true
         },
         async persist() {
-            const payload: PersistedProgressState = {
+            const payload = JSON.parse(JSON.stringify({
                 records: this.records,
                 sessions: this.sessions.slice(-120),
                 dailyGoal: this.dailyGoal,
-            }
+                completedScenarioIds: this.completedScenarioIds,
+            })) as PersistedProgressState
 
             await localforage.setItem(STORE_KEY, payload)
         },
@@ -130,9 +134,16 @@ export const useProgressStore = defineStore('progress', {
             this.dailyGoal = Math.max(5, Math.min(120, Math.round(value)))
             await this.persist()
         },
+        async completeScenario(scenarioId: string) {
+            if (!this.completedScenarioIds.includes(scenarioId)) {
+                this.completedScenarioIds.push(scenarioId)
+                await this.persist()
+            }
+        },
         async resetProgress() {
             this.records = {}
             this.sessions = []
+            this.completedScenarioIds = []
             await this.persist()
         },
     },

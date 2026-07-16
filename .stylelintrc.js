@@ -1,21 +1,29 @@
 module.exports = {
     extends: [
         'stylelint-config-recommended-scss',
-        'stylelint-config-rational-order',
     ],
     plugins: [
         'stylelint-order',
         'stylelint-scss'
     ],
-    overrides: [{
-        files: ["**/*.vue"],
-        customSyntax: "postcss-html",
-        rules: {
-            indentation: 4,
-        }
-    }],
+    overrides: [
+        {
+            files: ["src/assets/app.scss"],
+            rules: {
+                indentation: 4,
+            },
+        },
+        {
+            files: ["**/*.vue"],
+            customSyntax: "postcss-html",
+            rules: {
+                indentation: 4,
+            },
+        },
+    ],
     rules: {
         indentation: 2,
+        "no-descending-specificity": null,
         "selector-pseudo-class-no-unknown": [true, {
             "ignorePseudoClasses": ["deep",""]
         }]

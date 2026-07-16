@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { describe, expect } from 'vitest'
 import { useRouter } from 'vue-router'
 import { testApp } from '@@/tests/support/testApp'
@@ -13,5 +15,11 @@ describe('router', () => {
         const router = app.runWithContext(() => useRouter())
         await router.push('/does-not-exist')
         expect(router.currentRoute.value.name).toBe('study')
+    })
+
+    testApp('should expose real-life scenario missions', async ({ app }) => {
+        const router = app.runWithContext(() => useRouter())
+        await router.push({ name: 'scenarios' })
+        expect(router.currentRoute.value.name).toBe('scenarios')
     })
 })

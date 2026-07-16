@@ -28,8 +28,19 @@ function endpoint() {
 
 function fallbackResponse(payload: SendAssistantPayload) {
     const word = payload.context.activeWord
+    const scenario = payload.context.activeScenario
+    if (scenario && payload.message.toLocaleLowerCase().includes('role-play')) {
+        const firstLine = scenario.dialogue[0]
+
+        return [
+            `Let us practice “${scenario.title}”. I will play the other speaker.`,
+            `${firstLine.speaker}: ${firstLine.zh}`,
+            firstLine.pinyin,
+            'Reply in Chinese. I will keep the exchange focused on the mission.',
+        ].join('\n\n')
+    }
     if (!word)
-        return 'Choose a word first, then I can explain pronunciation, meaning, and practice ideas.'
+        return 'Choose a word or mission first, then I can explain an expression, plan a review, or start a role-play.'
 
     return [
         `${word.simplified} (${word.pinyin}) means "${word.english}".`,
@@ -43,10 +54,13 @@ export const useAssistantStore = defineStore('assistant', {
         isOpen: false,
         isLoading: false,
         messages: [
-            createMessage('assistant', 'Hi, I am your Mandarin tutor. Ask me to explain the current word, make a mnemonic, or quiz your weak words.'),
+            createMessage('assistant', 'Hi, I am your Mandarin tutor. Ask about the current word, practice a real-life mission, or make a plan from your weak words.'),
         ] as AssistantMessage[],
     }),
     actions: {
+        open() {
+            this.isOpen = true
+        },
         toggle() {
             this.isOpen = !this.isOpen
         },

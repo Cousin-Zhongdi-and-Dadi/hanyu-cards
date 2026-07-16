@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig, splitVendorChunkPlugin } from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 // https://github.com/TypeStrong/ts-node/issues/1096
@@ -45,7 +45,6 @@ export default defineConfig({
                 categories: ['education'],
             },
         }),
-        splitVendorChunkPlugin(),
     ],
     test: {
         // https://vitest.dev/guide/common-errors#failed-to-terminate-worker
@@ -56,10 +55,6 @@ export default defineConfig({
             ignoreSourceErrors: false,
             tsconfig: 'tsconfig.json',
         },
-        environmentMatchGlobs: [
-            ['tests/**/*.dom.test.{js,ts}', 'jsdom'],
-            ['tests/**/*.hdom.test.{js,ts}', 'happy-dom'],
-        ],
         includeSource: ['src/**/*.{js,ts}', 'tests/**/*.test.{js,ts}'],
     },
     define: {

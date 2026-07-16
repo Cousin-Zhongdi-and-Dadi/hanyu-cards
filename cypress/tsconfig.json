@@ -1,12 +1,11 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["./**/*.ts", "../types/cypress.d.ts"],
+  "include": ["./**/*.ts", "../types/cypress.d.ts", "../src/env.d.ts"],
   "exclude": [],
   "compilerOptions": {
     "types": [
       "cypress",
-      "cypress-visual-regression",
-      "@cypress-audit/lighthouse"
+      "cypress-visual-regression"
     ],
     "lib": ["es2017", "dom"],
     "isolatedModules": false,

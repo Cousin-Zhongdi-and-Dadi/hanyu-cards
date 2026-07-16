@@ -1,5 +1,6 @@
 import type { WordsFilters } from '@/modules/workspace/modules/words/types/WordsFilters'
 import { EWordStatus, getWordStatusesValues } from '@/services/dbstore/dto/Words'
+import { useI18n } from 'vue-i18n'
 
 export const WordStatusTranslationKey: Record<EWordStatus, string> = {
     [EWordStatus.NEW_WORD]: 'new_word',

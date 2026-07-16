@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { HskLevel, HskWord } from '@/types/learning'
 import hskWordsData from '@/data/hskWords.json'
+import { learningScenarios } from '@/data/scenarios'
 import { wordMatchesSearch } from '@/utils/learning'
 
 const hskWords = hskWordsData as HskWord[]
@@ -10,9 +11,11 @@ export const useContentStore = defineStore('content', {
         selectedLevel: 'all' as HskLevel | 'all',
         searchTerm: '',
         activeWordId: hskWords[0]?.id ?? '',
+        activeScenarioId: learningScenarios[0]?.id ?? '',
     }),
     getters: {
         words: () => hskWords,
+        scenarios: () => learningScenarios,
         wordsById: () => {
             return hskWords.reduce<Record<string, HskWord>>((acc, word) => {
                 acc[word.id] = word
@@ -37,10 +40,16 @@ export const useContentStore = defineStore('content', {
         activeWord(state): HskWord | undefined {
             return hskWords.find((word) => word.id === state.activeWordId) ?? hskWords[0]
         },
+        activeScenario(state) {
+            return learningScenarios.find((scenario) => scenario.id === state.activeScenarioId) ?? learningScenarios[0]
+        },
     },
     actions: {
         setActiveWord(wordId: string) {
             this.activeWordId = wordId
+        },
+        setActiveScenario(scenarioId: string) {
+            this.activeScenarioId = scenarioId
         },
     },
 })

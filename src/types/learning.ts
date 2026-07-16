@@ -42,8 +42,47 @@ export interface StudySession {
     xp: number
 }
 
+export interface ScenarioVocabulary {
+    simplified: string
+    pinyin: string
+    english: string
+    usage: string
+}
+
+export interface ScenarioDialogueLine {
+    speaker: string
+    zh: string
+    pinyin: string
+    en: string
+}
+
+export interface ScenarioTask {
+    prompt: string
+    hint: string
+    expectedKeywords: string[]
+    modelAnswer: WordExample
+}
+
+export interface LearningScenario {
+    id: string
+    level: HskLevel
+    title: string
+    chineseTitle: string
+    setting: string
+    mission: string
+    durationMinutes: number
+    objectives: string[]
+    vocabulary: ScenarioVocabulary[]
+    dialogue: ScenarioDialogueLine[]
+    cultureTitle: string
+    cultureNote: string
+    task: ScenarioTask
+}
+
 export interface AssistantContext {
     activeWord?: HskWord
+    activeScenario?: LearningScenario
+    learnerLevel: HskLevel | 'all'
     dueCount: number
     masteredCount: number
     recentMistakes: HskWord[]

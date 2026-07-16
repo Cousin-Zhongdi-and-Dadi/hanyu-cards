@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { VolumeHighOutline } from '@vicons/ionicons5'
 import type {
     HskWord,
     ReviewGrade,
     WordProgress,
 } from '@/types/learning'
+import { learningScenarios } from '@/data/scenarios'
 import {
     formatDateTime,
     reviewIntervalText,
@@ -24,6 +26,20 @@ const emit = defineEmits<{
     review: [grade: ReviewGrade]
     reveal: []
 }>()
+
+const scenarioExample = computed(() => {
+    const target = props.word.simplified
+    for (const scenario of learningScenarios) {
+        const vocabulary = scenario.vocabulary.find((item) => item.simplified === target)
+        if (vocabulary) {
+            const line = scenario.dialogue.find((item) => item.zh.includes(target))
+
+            return { scenario, vocabulary, line }
+        }
+    }
+
+    return undefined
+})
 
 function playAudio() {
     if (props.ttsEnabled)
@@ -64,6 +80,14 @@ function playAudio() {
             v-else
             class="word-card__answer">
             <p>{{ word.english }}</p>
+            <div
+                v-if="scenarioExample"
+                class="word-card__context">
+                <small>Mission · {{ scenarioExample.scenario.chineseTitle }}</small>
+                <strong v-if="scenarioExample.line">{{ scenarioExample.line.zh }}</strong>
+                <span v-if="scenarioExample.line">{{ scenarioExample.line.pinyin }}</span>
+                <em>{{ scenarioExample.vocabulary.usage }}</em>
+            </div>
             <div class="word-card__tags">
                 <span
                     v-for="tag in word.tags.slice(0, 4)"
