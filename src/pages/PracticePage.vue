@@ -1,60 +1,241 @@
 <script setup lang="ts">
 import {
     computed,
+    onMounted,
     ref,
     watch,
 } from 'vue'
+import {
+    CheckmarkCircleOutline,
+    HeadsetOutline,
+    RefreshOutline,
+    SparklesOutline,
+    TrophyOutline,
+    VolumeHighOutline,
+} from '@vicons/ionicons5'
+import type { HskWord, PracticeMode } from '@/types/learning'
+import { learningScenarios } from '@/data/scenarios'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
+import { useSettingsStore } from '@/stores/settings'
 import {
     chooseQuizOptions,
     levelOptions,
     speakMandarin,
 } from '@/utils/learning'
 
+type PracticeSelection = PracticeMode | 'mixed'
+
+interface ContextPrompt {
+    line: string
+    source: string
+}
+
+interface PracticeQuestion {
+    mode: PracticeMode
+    word: HskWord
+    options: HskWord[]
+    context?: ContextPrompt
+}
+
+const modeOptions: Array<{ value: PracticeSelection, label: string, detail: string }> = [
+    { value: 'mixed', label: 'Adaptive mix', detail: 'Targets your weakest skills' },
+    { value: 'meaning', label: 'Meaning', detail: 'Hanzi → meaning' },
+    { value: 'hanzi', label: 'Hanzi recall', detail: 'Meaning → hanzi' },
+    { value: 'pinyin', label: 'Pinyin', detail: 'Hanzi → pronunciation' },
+    { value: 'listening', label: 'Listening', detail: 'Audio → meaning' },
+    { value: 'context', label: 'In context', detail: 'Complete a dialogue' },
+]
+const practiceModes: PracticeMode[] = ['meaning', 'hanzi', 'pinyin', 'listening', 'context']
 const content = useContentStore()
 const progress = useProgressStore()
-const currentIndex = ref(0)
+const settings = useSettingsStore()
+const selectedMode = ref<PracticeSelection>('mixed')
+const question = ref<PracticeQuestion>()
 const selectedId = ref('')
 const answered = ref(false)
+const score = ref(0)
+const answerStreak = ref(0)
+const sessionAnswered = ref(0)
+const questionCursor = ref(0)
+const preparing = ref(true)
+const sessionTarget = 10
 
-const pool = computed(() => content.filteredWords.slice(0, 400))
-const current = computed(() => pool.value[currentIndex.value % Math.max(1, pool.value.length)])
-const options = computed(() => current.value ? chooseQuizOptions(current.value, pool.value) : [])
-const isCorrect = computed(() => selectedId.value === current.value?.id)
+const contextByWord = computed(() => {
+    const result = new Map<string, ContextPrompt>()
+    content.filteredWords.forEach((word) => {
+        for (const scenario of learningScenarios) {
+            const line = scenario.dialogue.find((item) => item.zh.includes(word.simplified))
+            if (line) {
+                result.set(word.id, {
+                    line: line.zh.replaceAll(word.simplified, '____'),
+                    source: scenario.chineseTitle,
+                })
+                break
+            }
+        }
+    })
 
-watch(current, (word) => {
-    if (word)
-        content.setActiveWord(word.id)
-}, { immediate: true })
+    return result
+})
+const prioritizedPool = computed(() => {
+    return [...content.filteredWords]
+        .sort((left, right) => {
+            const leftRecord = progress.records[left.id]
+            const rightRecord = progress.records[right.id]
+            const mistakeOrder = Number(Boolean(rightRecord?.needsMistakeReview)) - Number(Boolean(leftRecord?.needsMistakeReview))
+            if (mistakeOrder)
+                return mistakeOrder
+
+            const leftAccuracy = leftRecord?.reviews ? leftRecord.correct / leftRecord.reviews : 0.5
+            const rightAccuracy = rightRecord?.reviews ? rightRecord.correct / rightRecord.reviews : 0.5
+
+            return leftAccuracy - rightAccuracy || (left.frequency ?? 99999) - (right.frequency ?? 99999)
+        })
+        .slice(0, 500)
+})
+const isCorrect = computed(() => selectedId.value === question.value?.word.id)
+const sessionComplete = computed(() => sessionAnswered.value >= sessionTarget)
+const sessionPercent = computed(() => Math.round((sessionAnswered.value / sessionTarget) * 100))
+const currentModeLabel = computed(() => {
+    return modeOptions.find((item) => item.value === question.value?.mode)?.label ?? 'Adaptive mix'
+})
+const optionText = (word: HskWord) => {
+    if (question.value?.mode === 'hanzi' || question.value?.mode === 'context')
+        return settings.showTraditional ? word.traditional : word.simplified
+    if (question.value?.mode === 'pinyin')
+        return word.pinyin
+
+    return word.english
+}
+const correctAnswerText = computed(() => question.value ? optionText(question.value.word) : '')
+
+function modeAccuracy(mode: PracticeMode) {
+    const stats = progress.practiceStats[mode]
+
+    return stats.attempts ? stats.correct / stats.attempts : -1
+}
+
+function adaptiveMode() {
+    const available = practiceModes.filter((mode) => mode !== 'context' || contextByWord.value.size > 0)
+    const ordered = [...available].sort((left, right) => {
+        return modeAccuracy(left) - modeAccuracy(right) || practiceModes.indexOf(left) - practiceModes.indexOf(right)
+    })
+
+    return ordered[0]
+}
+
+function createQuestion() {
+    const mode = selectedMode.value === 'mixed' ? adaptiveMode() : selectedMode.value
+    const eligible = mode === 'context'
+        ? prioritizedPool.value.filter((word) => contextByWord.value.has(word.id))
+        : prioritizedPool.value
+    const word = eligible[questionCursor.value % Math.max(1, eligible.length)]
+    if (!word) {
+        question.value = undefined
+        preparing.value = false
+
+        return
+    }
+
+    question.value = {
+        mode,
+        word,
+        options: chooseQuizOptions(word, eligible.length >= 4 ? eligible : prioritizedPool.value),
+        context: mode === 'context' ? contextByWord.value.get(word.id) : undefined,
+    }
+    content.setActiveWord(word.id)
+    selectedId.value = ''
+    answered.value = false
+    preparing.value = false
+}
 
 function select(wordId: string) {
-    if (answered.value)
-        return
-    selectedId.value = wordId
+    if (!answered.value)
+        selectedId.value = wordId
 }
 
 async function submit() {
-    if (!selectedId.value || !current.value)
+    if (!selectedId.value || !question.value || answered.value)
         return
 
     answered.value = true
-    await progress.reviewWord(current.value, isCorrect.value ? 'good' : 'again')
+    sessionAnswered.value += 1
+    if (isCorrect.value) {
+        score.value += 1
+        answerStreak.value += 1
+    }
+    else {
+        answerStreak.value = 0
+    }
+    await progress.reviewWord(question.value.word, isCorrect.value ? 'good' : 'again', {
+        practiceMode: question.value.mode,
+    })
 }
 
 function next() {
+    questionCursor.value += 1
+    createQuestion()
+}
+
+function restart() {
+    questionCursor.value += 1
     selectedId.value = ''
     answered.value = false
-    currentIndex.value += 1
+    score.value = 0
+    answerStreak.value = 0
+    sessionAnswered.value = 0
+    createQuestion()
 }
+
+function playPrompt() {
+    if (question.value && settings.ttsEnabled)
+        speakMandarin(question.value.word.simplified)
+}
+
+watch([() => content.selectedLevel, selectedMode], restart)
+onMounted(async () => {
+    await progress.hydrate()
+    createQuestion()
+})
 </script>
 
 <template>
     <section class="screen practice-screen">
-        <div class="screen__intro">
+        <section class="practice-hero">
             <div>
-                <p class="eyebrow">Multiple choice</p>
-                <h2>Match the meaning</h2>
+                <p class="eyebrow">Adaptive recall · 10 questions</p>
+                <h2>Train every side<br />of your memory.</h2>
+                <p>Meaning, characters, pronunciation, listening, and real dialogue adapt to your results.</p>
+            </div>
+            <div class="practice-score">
+                <TrophyOutline></TrophyOutline>
+                <span>
+                    <strong>{{ score }}/{{ sessionAnswered || 0 }}</strong>
+                    <small>correct this round</small>
+                </span>
+            </div>
+        </section>
+
+        <section
+            class="practice-mode-picker"
+            aria-label="Practice modes">
+            <button
+                v-for="mode in modeOptions"
+                :key="mode.value"
+                @click="selectedMode = mode.value"
+                :class="{ active: selectedMode === mode.value }"
+                type="button">
+                <SparklesOutline v-if="mode.value === 'mixed'"></SparklesOutline>
+                <HeadsetOutline v-else-if="mode.value === 'listening'"></HeadsetOutline>
+                <span><strong>{{ mode.label }}</strong><small>{{ mode.detail }}</small></span>
+            </button>
+        </section>
+
+        <div class="practice-toolbar">
+            <div>
+                <span>Question {{ Math.min(sessionAnswered + (answered ? 0 : 1), sessionTarget) }} of {{ sessionTarget }} · {{ currentModeLabel }}</span>
+                <div class="progress-track"><i :style="{ width: `${sessionPercent}%` }"></i></div>
             </div>
             <select
                 v-model="content.selectedLevel"
@@ -68,39 +249,76 @@ function next() {
             </select>
         </div>
 
+        <div
+            v-if="preparing"
+            class="study-empty"><SparklesOutline></SparklesOutline><h3>Preparing adaptive practice…</h3></div>
+
         <article
-            v-if="current"
-            class="quiz-panel">
-            <button
-                @click="speakMandarin(current.simplified)"
-                class="quiz-panel__audio"
-                type="button">
-                Hear word
-            </button>
-            <div class="quiz-panel__hanzi">{{ current.simplified }}</div>
-            <div class="quiz-panel__pinyin">{{ current.pinyin }}</div>
+            v-else-if="question"
+            class="quiz-panel"
+            :class="`quiz-panel--${question.mode}`">
+            <div class="quiz-panel__prompt">
+                <span class="character-grid"></span>
+                <button
+                    v-if="question.mode === 'listening'"
+                    @click="playPrompt"
+                    class="quiz-panel__audio quiz-panel__audio--large"
+                    type="button"
+                    aria-label="Play listening prompt">
+                    <VolumeHighOutline></VolumeHighOutline>
+                </button>
+                <template v-if="question.mode === 'meaning'">
+                    <div class="quiz-panel__hanzi">{{ settings.showTraditional ? question.word.traditional : question.word.simplified }}</div>
+                    <div class="quiz-panel__pinyin">{{ question.word.pinyin }}</div>
+                    <small>Choose the closest meaning</small>
+                </template>
+                <template v-else-if="question.mode === 'hanzi'">
+                    <div class="quiz-panel__meaning-prompt">{{ question.word.english }}</div>
+                    <div class="quiz-panel__pinyin">{{ question.word.pinyin }}</div>
+                    <small>Choose the matching Chinese word</small>
+                </template>
+                <template v-else-if="question.mode === 'pinyin'">
+                    <div class="quiz-panel__hanzi">{{ settings.showTraditional ? question.word.traditional : question.word.simplified }}</div>
+                    <div class="quiz-panel__meaning-caption">{{ question.word.english }}</div>
+                    <small>Choose the correct pronunciation</small>
+                </template>
+                <template v-else-if="question.mode === 'listening'">
+                    <div class="quiz-panel__listening-title">Listen, then choose</div>
+                    <small>You can replay the Mandarin audio</small>
+                </template>
+                <template v-else>
+                    <div class="quiz-panel__context">{{ question.context?.line }}</div>
+                    <div class="quiz-panel__meaning-caption">From mission · {{ question.context?.source }}</div>
+                    <small>Choose the word that completes the dialogue</small>
+                </template>
+            </div>
 
             <div class="quiz-options">
                 <button
-                    v-for="option in options"
+                    v-for="option in question.options"
                     :key="option.id"
                     @click="select(option.id)"
                     type="button"
                     :class="{
                         selected: selectedId === option.id,
-                        correct: answered && option.id === current.id,
-                        wrong: answered && selectedId === option.id && selectedId !== current.id,
+                        correct: answered && option.id === question.word.id,
+                        wrong: answered && selectedId === option.id && selectedId !== question.word.id,
                     }">
-                    {{ option.english }}
+                    <span>{{ optionText(option) }}</span>
+                    <CheckmarkCircleOutline v-if="answered && option.id === question.word.id"></CheckmarkCircleOutline>
                 </button>
             </div>
 
-            <p
+            <div
                 v-if="answered"
                 class="quiz-feedback"
                 :class="{ good: isCorrect }">
-                {{ isCorrect ? 'Correct. Nice recall.' : `Answer: ${current.english}` }}
-            </p>
+                <CheckmarkCircleOutline v-if="isCorrect"></CheckmarkCircleOutline>
+                <span>
+                    <strong>{{ isCorrect ? 'Correct — nicely remembered.' : 'Not quite. This word is now in your mistake notebook.' }}</strong>
+                    <small>{{ isCorrect ? `${answerStreak} answer streak` : `The answer is “${correctAnswerText}”.` }}</small>
+                </span>
+            </div>
 
             <button
                 v-if="!answered"
@@ -111,12 +329,27 @@ function next() {
                 Check Answer
             </button>
             <button
-                v-else
+                v-else-if="!sessionComplete"
                 @click="next"
                 class="primary-action"
                 type="button">
                 Next Question
             </button>
+            <button
+                v-else
+                @click="restart"
+                class="primary-action"
+                type="button">
+                <RefreshOutline></RefreshOutline>
+                New round · {{ score }}/{{ sessionTarget }} correct
+            </button>
         </article>
+
+        <section
+            v-else
+            class="mistakes-empty">
+            <h3>No practice words in this set.</h3>
+            <p>Choose another HSK level to continue.</p>
+        </section>
     </section>
 </template>

@@ -5,15 +5,17 @@ Offline-first Mandarin Chinese learning app for adult HSK learners. The app was 
 ## Features
 
 - HSK 1-3 vocabulary set with simplified, traditional, pinyin, English meanings, radicals, tags, and review status.
-- Flashcard study with `Again`, `Hard`, `Good`, and `Easy` spaced-review scheduling.
+- A fixed, resumable daily route that prioritizes due reviews, active mistakes, and high-frequency new words.
+- Flashcard study with `Again`, `Hard`, `Good`, and `Easy` spaced-review scheduling, plus a focused mistake notebook.
 - Six progressive real-life missions for introductions, dining, shopping, transit, campus teamwork, and clinic visits.
-- Task-based lessons with learning goals, core expressions, bilingual dialogue, pronunciation, culture notes, and applied response checks.
-- Multiple-choice practice, searchable dictionary, daily goal, accuracy, due count, and level progress.
+- Task-based lessons with learning goals, core expressions, bilingual dialogue, pronunciation, culture notes, and Agicto-powered semantic checks with three score dimensions, follow-up prompts, best scores, and an offline fallback.
+- Adaptive practice across meaning, Hanzi recall, pinyin, listening, and dialogue context; weaker modes and mistake words receive priority.
+- Searchable dictionary, daily goal, accuracy, due count, focused study time, seven-day trends, and drill-down vocabulary progress.
 - Device speech synthesis for Mandarin pronunciation.
-- Offline-first progress storage through IndexedDB/localforage.
+- Offline-first progress storage through IndexedDB/localforage, with JSON backup/restore and a protected reset flow.
 - Personalized learning analytics with a next-step recommendation, seven-day activity, XP, and mission completion.
 - Floating AI tutor with HSK level, current mission, due words, and recent mistakes as context; includes role-play and offline fallback.
-- PWA plus Capacitor configuration for Android and iOS packaging.
+- PWA plus Capacitor 8 packaging for Android 16/API 36 and iOS 15+.
 
 ## Project implementation scope
 
@@ -28,10 +30,10 @@ For the 2026 mid-term review, the recommended evidence set is the built web/PWA 
 
 ## Development
 
-Use Node.js 20 or newer.
+Use Node.js 22.12 or newer.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -48,16 +50,27 @@ For frontend and API together:
 npm run dev:all
 ```
 
-Set `OPENAI_API_KEY` and `AI_MOCK=false` in `.env` for production AI responses. The frontend uses `VITE_ASSISTANT_API_URL` and never stores provider keys.
+Set `AGICTO_API_KEY` and `AI_MOCK=false` in `.env` for live AI responses through the Agicto OpenAI-compatible API. `AGICTO_CHAT_MODEL` defaults to the low-cost `qwen-turbo` model and can be changed without rebuilding the frontend. The browser only uses `VITE_ASSISTANT_API_URL` and never receives the provider key.
+
+The same model evaluates mission responses by communicative meaning rather than requiring exact sample wording. If the provider is unavailable, the app clearly labels and uses its stricter on-device expression check instead.
+
+The repository ignores `.env`; never rename the provider key with a `VITE_` prefix, because Vite-prefixed values are exposed to browser code.
+
+## Data architecture
+
+The current milestone intentionally has no remote application database. Versioned HSK and scenario content ships with the app, learning progress remains in IndexedDB/localforage, preferences remain in localStorage, and the AI proxy is stateless. This keeps the prototype offline-first, account-free, inexpensive to operate, and usable when the network or model is unavailable.
+
+A server database becomes useful when the product adds accounts, cross-device sync, remotely managed learning content, teacher dashboards, paid plans, or cohort analytics. At that stage, add an authenticated API and PostgreSQL-compatible storage with explicit local-to-cloud conflict handling; do not make the core study loop wait for the network.
 
 ## Build
 
 ```bash
 npm run build
-npx cap sync
+npm run mobile:android:debug
+npm run mobile:sync:ios
 ```
 
-Android and iOS release details are in [docs/release-checklist.md](docs/release-checklist.md).
+The Android debug APK is generated at `android/app/build/outputs/apk/debug/app-debug.apk`. Native Mandarin TTS, backup sharing, haptics, Android back-button handling, production AI endpoint configuration, signing, and iOS archive steps are documented in [docs/mobile-build.md](docs/mobile-build.md). Store submission gates are in [docs/release-checklist.md](docs/release-checklist.md).
 
 ## Compliance Notes
 

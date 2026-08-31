@@ -15,11 +15,11 @@
   <p>Effective date: June 16, 2026</p>
   <p>HanYu Cards is an offline-first Mandarin learning app. Vocabulary progress, review history, daily goal, and settings are stored locally on your device.</p>
   <h2>Data We Collect</h2>
-  <p>The app does not require an account and does not sell personal data. When you send a message to the AI tutor, the app sends your message, the current vocabulary word, due word count, mastered count, and recent mistake words to the configured assistant API so it can answer.</p>
+  <p>The app does not require an account and does not sell personal data. When you send a message to the AI tutor or request semantic feedback on a mission response, the app sends that text and the minimum relevant vocabulary, progress, or mission context to the configured assistant API so it can answer or evaluate the response.</p>
   <h2>Data Storage</h2>
-  <p>Learning progress is stored in device browser storage or the native app webview storage. You can reset local progress in Settings.</p>
+  <p>Learning progress—including daily plans, review history, mistake status, practice statistics, focused study time, and mission scores—is stored in device browser storage or the native app webview storage. Settings lets you export this information to a JSON backup, restore a backup, or permanently reset local progress. Exported backup files are controlled by you and never include the server-side AI API key.</p>
   <h2>Third Parties</h2>
-  <p>If the AI tutor is enabled, messages are processed by the configured AI provider through the app backend. Review your deployment provider's terms before publishing.</p>
+  <p>If the AI tutor is enabled, the app backend sends the minimum tutor request and learning context to Agicto, which routes the selected language model. The API key remains on the app backend. Review Agicto's current terms, privacy policy, selected model provider, and deployment region before publishing.</p>
   <h2>Contact</h2>
   <p>For production release, replace this section with the publisher support email and legal address.</p>
 </body>

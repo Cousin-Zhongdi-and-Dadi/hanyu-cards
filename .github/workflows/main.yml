@@ -9,8 +9,6 @@ jobs:
   build:
     name: 'Build'
     uses: ./.github/workflows/build.yml
-    secrets:
-      FIREBASE_CONFIG_BASE64: ${{ secrets.FIREBASE_CONFIG_BASE64 }}
 
   e2e-chrome-tests:
     name: 'E2E Chrome Tests - Desktop'
@@ -19,9 +17,6 @@ jobs:
     with:
       isManual: false
       platform: desktop
-    secrets:
-      TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME_1 }}
-      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD_1 }}
 
   e2e-chrome-mobile-tests:
     name: 'E2E Chrome Tests - Mobile'
@@ -30,9 +25,6 @@ jobs:
     with:
       isManual: false
       platform: mobile
-    secrets:
-      TEST_USER_USERNAME: ${{ secrets.TEST_USER_USERNAME_2 }}
-      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD_2 }}
 
   deploy-preview-website:
     name: 'Deploy Production Website'

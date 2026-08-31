@@ -4,17 +4,23 @@ import {
     BarChartOutline,
     BookOutline,
     CompassOutline,
+    FlameOutline,
     LibraryOutline,
     OptionsOutline,
     SchoolOutline,
 } from '@vicons/ionicons5'
 import AIAssistant from '@/components/AIAssistant.vue'
+import { useNativeBackButton } from '@/composables/useNativeBackButton'
+import { useStudyTimer } from '@/composables/useStudyTimer'
 import { useProgressStore } from '@/stores/progress'
+import { todayKey } from '@/utils/learning'
 
 const progress = useProgressStore()
+useNativeBackButton()
+useStudyTimer()
 
 const navItems = [
-    { to: '/study', label: 'Study', icon: SchoolOutline },
+    { to: '/study', label: 'Today', icon: SchoolOutline },
     { to: '/scenarios', label: 'Missions', icon: CompassOutline },
     { to: '/practice', label: 'Practice', icon: BookOutline },
     { to: '/dictionary', label: 'Words', icon: LibraryOutline },
@@ -24,6 +30,22 @@ const navItems = [
 const todayPercent = computed(() => {
     return Math.min(100, Math.round((progress.todaySession.reviewed / progress.dailyGoal) * 100))
 })
+const currentStreak = computed(() => {
+    let streak = 0
+    const cursor = new Date()
+
+    while (progress.sessions.some((session) => session.date === todayKey(cursor) && session.reviewed > 0)) {
+        streak += 1
+        cursor.setDate(cursor.getDate() - 1)
+    }
+
+    return streak
+})
+const todayLabel = new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'long',
+}).format(new Date())
 
 onMounted(async () => {
     await progress.hydrate()
@@ -32,17 +54,47 @@ onMounted(async () => {
 
 <template>
     <div class="app-shell">
+        <div
+            class="app-atmosphere"
+            aria-hidden="true">
+            <i></i>
+            <i></i>
+            <i></i>
+        </div>
+
         <header class="topbar">
-            <div>
-                <p class="eyebrow">HSK 1-3 Mandarin</p>
-                <h1>HanYu Cards</h1>
-            </div>
+            <RouterLink
+                to="/study"
+                class="brand"
+                aria-label="HanYu Cards home">
+                <span
+                    class="brand__mark"
+                    aria-hidden="true">汉</span>
+                <span class="brand__copy">
+                    <strong>HanYu</strong>
+                    <small>Mandarin, made memorable</small>
+                </span>
+            </RouterLink>
+
+            <p class="topbar__date">{{ todayLabel }}</p>
+
             <div class="topbar__actions">
+                <div
+                    class="topbar__streak"
+                    aria-label="Current learning streak">
+                    <FlameOutline></FlameOutline>
+                    <span>
+                        <strong>{{ currentStreak }}</strong>
+                        <small>day streak</small>
+                    </span>
+                </div>
                 <div
                     class="topbar__meter"
                     aria-label="Daily progress">
-                    <strong>{{ progress.todaySession.reviewed }}/{{ progress.dailyGoal }}</strong>
-                    <span>today</span>
+                    <span>
+                        <strong>{{ progress.todaySession.reviewed }}/{{ progress.dailyGoal }}</strong>
+                        <small>today</small>
+                    </span>
                     <div><i :style="{ width: `${todayPercent}%` }"></i></div>
                 </div>
                 <RouterLink
@@ -67,7 +119,9 @@ onMounted(async () => {
                 :key="item.to"
                 :to="item.to"
                 class="bottom-nav__item">
-                <component :is="item.icon"></component>
+                <span class="bottom-nav__icon">
+                    <component :is="item.icon"></component>
+                </span>
                 <span>{{ item.label }}</span>
             </RouterLink>
         </nav>

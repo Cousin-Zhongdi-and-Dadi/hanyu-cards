@@ -4,6 +4,7 @@ import type {
     ReviewGrade,
     WordProgress,
 } from '@/types/learning'
+import { speakNativeMandarin } from '@/utils/native'
 
 export const levelOptions: Array<{ label: string, value: HskLevel | 'all' }> = [
     { label: 'All HSK 1-3', value: 'all' },
@@ -27,7 +28,11 @@ export const reviewIntervalText: Record<ReviewGrade, string> = {
 }
 
 export function todayKey(date = new Date()) {
-    return date.toISOString().slice(0, 10)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
 }
 
 export function normalizeSearch(value: string) {
@@ -35,7 +40,9 @@ export function normalizeSearch(value: string) {
 }
 
 export function isDue(progress?: WordProgress, now = new Date()) {
-    if (!progress?.nextReviewAt)
+    if (!progress)
+        return false
+    if (!progress.nextReviewAt)
         return true
 
     return new Date(progress.nextReviewAt).getTime() <= now.getTime()
@@ -79,7 +86,24 @@ export function formatDateTime(value?: string) {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export function speakMandarin(text: string) {
+export function formatStudyTime(seconds: number) {
+    const total = Math.max(0, Math.round(seconds))
+    if (total < 60)
+        return `${total}s`
+
+    const minutes = Math.floor(total / 60)
+    if (minutes < 60)
+        return `${minutes}m`
+
+    const hours = Math.floor(minutes / 60)
+    const remainder = minutes % 60
+
+    return remainder ? `${hours}h ${remainder}m` : `${hours}h`
+}
+
+export async function speakMandarin(text: string) {
+    if (await speakNativeMandarin(text))
+        return
     if (!('speechSynthesis' in window))
         return
 
@@ -113,4 +137,41 @@ export function chooseQuizOptions(current: HskWord, pool: HskWord[]) {
         .slice(0, 3)
 
     return [...shuffled, current].sort(() => Math.random() - 0.5)
+}
+
+export function dailyPlanKey(date: string, level: HskLevel | 'all') {
+    return `${date}:${level}`
+}
+
+export function buildDailyWordIds(
+    words: HskWord[],
+    records: Record<string, WordProgress>,
+    goal: number,
+    now = new Date(),
+) {
+    const date = todayKey(now)
+    const available = words.filter((word) => records[word.id]?.lastReviewedAt?.slice(0, 10) !== date)
+    const due = available
+        .filter((word) => isDue(records[word.id], now))
+        .sort((left, right) => {
+            return (records[left.id]?.nextReviewAt ?? '').localeCompare(records[right.id]?.nextReviewAt ?? '')
+        })
+    const dueIds = new Set(due.map((word) => word.id))
+    const mistakes = available
+        .filter((word) => records[word.id]?.needsMistakeReview && !dueIds.has(word.id))
+        .sort((left, right) => {
+            const leftRecord = records[left.id]
+            const rightRecord = records[right.id]
+            const dateOrder = (rightRecord?.lastMistakeAt ?? '').localeCompare(leftRecord?.lastMistakeAt ?? '')
+
+            return dateOrder || (rightRecord?.mistakeCount ?? 0) - (leftRecord?.mistakeCount ?? 0)
+        })
+    const priorityIds = new Set([...due, ...mistakes].map((word) => word.id))
+    const fresh = available
+        .filter((word) => !records[word.id] && !priorityIds.has(word.id))
+        .sort((left, right) => (left.frequency ?? Number.MAX_SAFE_INTEGER) - (right.frequency ?? Number.MAX_SAFE_INTEGER))
+
+    return [...due, ...mistakes, ...fresh]
+        .slice(0, Math.max(0, Math.round(goal)))
+        .map((word) => word.id)
 }

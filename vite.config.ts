@@ -9,7 +9,11 @@ import * as path from 'path'
 dotenv.config({ path: `.env.${process.env.NODE_ENV}` })
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+    // The offline HSK dictionary is intentionally bundled and precached (about 600 kB minified).
+    build: {
+        chunkSizeWarningLimit: 650,
+    },
     resolve: {
         alias: {
             '@@': path.resolve(__dirname, '.'),
@@ -26,7 +30,7 @@ export default defineConfig({
     plugins: [
         vue(),
         VitePWA({
-            disable: process.env.NODE_ENV === 'test',
+            disable: process.env.NODE_ENV === 'test' || mode === 'mobile',
             injectRegister: null,
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'privacy.html'],
@@ -38,8 +42,8 @@ export default defineConfig({
                     { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
                     { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
                 ],
-                theme_color: '#167c80',
-                background_color: '#f6f8f4',
+                theme_color: '#087d76',
+                background_color: '#f4f1e9',
                 display: 'standalone',
                 orientation: 'portrait',
                 categories: ['education'],
@@ -71,4 +75,4 @@ export default defineConfig({
         host: true,
         port: 8080,
     },
-})
+}))

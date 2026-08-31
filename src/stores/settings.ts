@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 const SETTINGS_KEY = 'hanyu-settings-v1'
 
-interface SettingsState {
+export interface SettingsState {
     ttsEnabled: boolean
     assistantEnabled: boolean
     showTraditional: boolean
@@ -23,6 +23,19 @@ function loadSettings(): SettingsState {
     }
 }
 
+function normalizeSettings(value: unknown): SettingsState {
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+        throw new Error('This backup does not contain valid learning preferences.')
+
+    const candidate = value as Partial<SettingsState>
+
+    return {
+        ttsEnabled: typeof candidate.ttsEnabled === 'boolean' ? candidate.ttsEnabled : defaults.ttsEnabled,
+        assistantEnabled: typeof candidate.assistantEnabled === 'boolean' ? candidate.assistantEnabled : defaults.assistantEnabled,
+        showTraditional: typeof candidate.showTraditional === 'boolean' ? candidate.showTraditional : defaults.showTraditional,
+    }
+}
+
 export const useSettingsStore = defineStore('settings', {
     state: () => loadSettings(),
     actions: {
@@ -32,6 +45,20 @@ export const useSettingsStore = defineStore('settings', {
                 assistantEnabled: this.assistantEnabled,
                 showTraditional: this.showTraditional,
             }))
+        },
+        exportSettings(): SettingsState {
+            return {
+                ttsEnabled: this.ttsEnabled,
+                assistantEnabled: this.assistantEnabled,
+                showTraditional: this.showTraditional,
+            }
+        },
+        importSettings(value: unknown) {
+            const normalized = normalizeSettings(value)
+            this.ttsEnabled = normalized.ttsEnabled
+            this.assistantEnabled = normalized.assistantEnabled
+            this.showTraditional = normalized.showTraditional
+            this.persist()
         },
         setTtsEnabled(value: boolean) {
             this.ttsEnabled = value

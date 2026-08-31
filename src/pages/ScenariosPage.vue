@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     CheckmarkCircleOutline,
+    FlagOutline,
     SparklesOutline,
     VolumeHighOutline,
 } from '@vicons/ionicons5'
@@ -9,6 +10,7 @@ import {
     ref,
     watch,
 } from 'vue'
+import type { ScenarioEvaluation } from '@/types/learning'
 import { useAssistantStore } from '@/stores/assistant'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
@@ -19,32 +21,34 @@ const content = useContentStore()
 const progress = useProgressStore()
 const response = ref('')
 const submitted = ref(false)
+const checking = ref(false)
+const evaluation = ref<ScenarioEvaluation>()
 
 const activeScenario = computed(() => content.activeScenario)
-const completedCount = computed(() => progress.completedScenarioIds.length)
-const matchedKeywords = computed(() => {
-    if (!activeScenario.value)
-        return []
-
-    const normalized = response.value.replace(/[\s，。！？、,.!?]/g, '')
-
-    return activeScenario.value.task.expectedKeywords.filter((keyword) => normalized.includes(keyword))
+const completedCount = computed(() => content.scenarios.filter((scenario) => progress.completedScenarioIds.includes(scenario.id)).length)
+const coursePercent = computed(() => Math.round((completedCount.value / content.scenarios.length) * 100))
+const activeProgress = computed(() => activeScenario.value ? progress.scenarioProgress[activeScenario.value.id] : undefined)
+const dimensionLabels: Array<{ key: keyof ScenarioEvaluation['dimensions'], label: string }> = [
+    { key: 'completeness', label: 'Task coverage' },
+    { key: 'naturalness', label: 'Natural phrasing' },
+    { key: 'accuracy', label: 'Language accuracy' },
+]
+const activeScenarioNumber = computed(() => {
+    return content.scenarios.findIndex((scenario) => scenario.id === activeScenario.value?.id) + 1
 })
-const taskFeedback = computed(() => {
-    const task = activeScenario.value?.task
-    if (!task)
-        return ''
-    if (matchedKeywords.value.length === task.expectedKeywords.length)
-        return 'Mission complete. You included every target expression.'
-    if (matchedKeywords.value.length)
-        return `Good start. Add: ${task.expectedKeywords.filter((keyword) => !matchedKeywords.value.includes(keyword)).join(' · ')}`
+const evaluationSourceLabel = computed(() => {
+    if (evaluation.value?.source === 'agicto')
+        return 'Agicto semantic review'
+    if (evaluation.value?.source === 'mock')
+        return 'Demo phrase review'
 
-    return `Try one of the target patterns: ${task.expectedKeywords.join(' · ')}`
+    return 'Offline phrase fallback'
 })
 
 watch(() => activeScenario.value?.id, () => {
     response.value = ''
     submitted.value = false
+    evaluation.value = undefined
 })
 
 function chooseScenario(scenarioId: string) {
@@ -53,11 +57,20 @@ function chooseScenario(scenarioId: string) {
 }
 
 async function submitTask() {
-    if (!response.value.trim() || !activeScenario.value)
+    if (checking.value || !response.value.trim() || !activeScenario.value)
         return
 
+    checking.value = true
+    submitted.value = false
+    evaluation.value = await assistant.evaluateScenario(activeScenario.value, response.value)
     submitted.value = true
-    await progress.completeScenario(activeScenario.value.id)
+    checking.value = false
+    await progress.recordScenarioAttempt(activeScenario.value.id, evaluation.value)
+}
+
+function resetEvaluation() {
+    submitted.value = false
+    evaluation.value = undefined
 }
 
 function openTutor() {
@@ -67,36 +80,49 @@ function openTutor() {
 
 <template>
     <section class="screen scenarios-screen">
-        <div class="screen__intro">
+        <section class="missions-hero">
             <div>
-                <p class="eyebrow">Task-based learning</p>
-                <h2>Real-life missions</h2>
-                <p class="screen__description">Move from useful words to a complete conversation, then apply it yourself.</p>
+                <p class="eyebrow">Real-life missions · Learn it where you’ll use it</p>
+                <h2>Six missions.<br />Real-life Mandarin.</h2>
+                <p>Move from useful words to a complete conversation, then make the language your own.</p>
             </div>
             <div
                 class="scenario-summary"
                 aria-label="Scenario course progress">
-                <strong>{{ completedCount }}/{{ content.scenarios.length }}</strong>
-                <span>missions complete</span>
+                <div>
+                    <FlagOutline></FlagOutline>
+                    <span><strong>{{ completedCount }}/{{ content.scenarios.length }}</strong><small>missions complete</small></span>
+                </div>
+                <div class="progress-track"><i :style="{ width: `${coursePercent}%` }"></i></div>
             </div>
-        </div>
+        </section>
 
         <div class="scenario-workspace">
             <aside
                 class="scenario-list"
                 aria-label="Scenario missions">
+                <header>
+                    <p class="eyebrow">Your route</p>
+                    <span>{{ coursePercent }}% explored</span>
+                </header>
                 <button
                     v-for="(scenario, index) in content.scenarios"
                     :key="scenario.id"
                     @click="chooseScenario(scenario.id)"
                     type="button"
                     class="scenario-tab"
-                    :class="{ active: activeScenario?.id === scenario.id }"
+                    :class="{
+                        active: activeScenario?.id === scenario.id,
+                        complete: progress.completedScenarioIds.includes(scenario.id),
+                    }"
                     :aria-current="activeScenario?.id === scenario.id ? 'step' : undefined">
                     <span class="scenario-tab__index">{{ String(index + 1).padStart(2, '0') }}</span>
                     <span>
                         <strong>{{ scenario.title }}</strong>
-                        <small>HSK {{ scenario.level }} · {{ scenario.durationMinutes }} min</small>
+                        <small>
+                            HSK {{ scenario.level }} · {{ scenario.durationMinutes }} min
+                            <template v-if="progress.scenarioProgress[scenario.id]"> · Best {{ progress.scenarioProgress[scenario.id].bestScore }}</template>
+                        </small>
                     </span>
                     <CheckmarkCircleOutline
                         v-if="progress.completedScenarioIds.includes(scenario.id)"
@@ -111,7 +137,7 @@ function openTutor() {
                 class="scenario-detail">
                 <header class="scenario-hero">
                     <div>
-                        <p class="eyebrow">HSK {{ activeScenario.level }} · {{ activeScenario.setting }}</p>
+                        <p class="eyebrow">Mission {{ String(activeScenarioNumber).padStart(2, '0') }} · HSK {{ activeScenario.level }}</p>
                         <h3>{{ activeScenario.chineseTitle }}</h3>
                         <span>{{ activeScenario.title }}</span>
                     </div>
@@ -123,6 +149,14 @@ function openTutor() {
                         AI role-play
                     </button>
                     <p>{{ activeScenario.mission }}</p>
+                    <footer>
+                        <span>{{ activeScenario.durationMinutes }} min</span>
+                        <span>{{ activeScenario.setting }}</span>
+                        <span v-if="activeProgress">Best {{ activeProgress.bestScore }}/100 · {{ activeProgress.attempts }} attempt{{ activeProgress.attempts === 1 ? '' : 's' }}</span>
+                    </footer>
+                    <i
+                        class="scenario-hero__seal"
+                        aria-hidden="true">用中文</i>
                 </header>
 
                 <section class="lesson-section mission-objectives">
@@ -219,26 +253,77 @@ function openTutor() {
                     <textarea
                         :id="`scenario-response-${activeScenario.id}`"
                         v-model="response"
+                        @input="resetEvaluation"
                         rows="4"
+                        :disabled="checking"
                         :placeholder="activeScenario.task.hint">
                     </textarea>
+                    <p class="scenario-task__check-note">
+                        <SparklesOutline></SparklesOutline>
+                        Agicto checks meaning when connected; an exact-expression check remains available offline.
+                    </p>
                     <button
                         @click="submitTask"
                         class="primary-action"
                         type="button"
-                        :disabled="!response.trim()">
-                        Check response
+                        :disabled="!response.trim() || checking">
+                        <SparklesOutline></SparklesOutline>
+                        {{ checking ? 'Checking meaning…' : 'Check response' }}
                     </button>
 
                     <div
-                        v-if="submitted"
+                        v-if="submitted && evaluation"
                         class="task-feedback"
+                        :class="{ 'task-feedback--complete': evaluation.passed }"
                         aria-live="polite">
-                        <strong>{{ taskFeedback }}</strong>
+                        <div class="task-feedback__summary">
+                            <strong>{{ evaluation.feedback }}</strong>
+                            <span>{{ evaluation.score }}/100</span>
+                        </div>
+                        <small class="task-feedback__source">{{ evaluationSourceLabel }}</small>
+                        <div
+                            class="evaluation-dimensions"
+                            aria-label="AI score dimensions">
+                            <div
+                                v-for="dimension in dimensionLabels"
+                                :key="dimension.key">
+                                <header><span>{{ dimension.label }}</span><strong>{{ evaluation.dimensions[dimension.key] }}</strong></header>
+                                <div class="progress-track"><i :style="{ width: `${evaluation.dimensions[dimension.key]}%` }"></i></div>
+                            </div>
+                        </div>
+                        <div
+                            v-if="evaluation.strengths.length || evaluation.improvements.length"
+                            class="task-feedback__details">
+                            <div v-if="evaluation.strengths.length">
+                                <p>What worked</p>
+                                <ul>
+                                    <li
+                                        v-for="strength in evaluation.strengths"
+                                        :key="strength">{{ strength }}</li>
+                                </ul>
+                            </div>
+                            <div v-if="evaluation.improvements.length">
+                                <p>Try next</p>
+                                <ul>
+                                    <li
+                                        v-for="improvement in evaluation.improvements"
+                                        :key="improvement">{{ improvement }}</li>
+                                </ul>
+                            </div>
+                        </div>
                         <p>Model response</p>
                         <span>{{ activeScenario.task.modelAnswer.zh }}</span>
                         <small>{{ activeScenario.task.modelAnswer.pinyin }}</small>
                         <small>{{ activeScenario.task.modelAnswer.en }}</small>
+                        <aside
+                            v-if="evaluation.followUp"
+                            class="evaluation-follow-up">
+                            <SparklesOutline></SparklesOutline>
+                            <div>
+                                <p>Follow-up challenge</p>
+                                <span>{{ evaluation.followUp }}</span>
+                            </div>
+                        </aside>
                     </div>
                 </section>
             </article>
