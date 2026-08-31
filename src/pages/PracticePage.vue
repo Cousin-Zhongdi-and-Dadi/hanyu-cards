@@ -13,7 +13,11 @@ import {
     TrophyOutline,
     VolumeHighOutline,
 } from '@vicons/ionicons5'
-import type { HskWord, PracticeMode } from '@/types/learning'
+import type {
+    HskLevel,
+    HskWord,
+    PracticeMode,
+} from '@/types/learning'
 import { learningScenarios } from '@/data/scenarios'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
@@ -51,6 +55,7 @@ const content = useContentStore()
 const progress = useProgressStore()
 const settings = useSettingsStore()
 const selectedMode = ref<PracticeSelection>('mixed')
+const practiceLevel = ref<HskLevel | 'all'>('all')
 const question = ref<PracticeQuestion>()
 const selectedId = ref('')
 const answered = ref(false)
@@ -59,11 +64,16 @@ const answerStreak = ref(0)
 const sessionAnswered = ref(0)
 const questionCursor = ref(0)
 const preparing = ref(true)
+const roundSummary = ref(false)
+const roundResults = ref<Array<{ mode: PracticeMode, correct: boolean }>>([])
 const sessionTarget = 10
 
+const practiceWords = computed(() => {
+    return content.words.filter((word) => practiceLevel.value === 'all' || word.level === practiceLevel.value)
+})
 const contextByWord = computed(() => {
     const result = new Map<string, ContextPrompt>()
-    content.filteredWords.forEach((word) => {
+    practiceWords.value.forEach((word) => {
         for (const scenario of learningScenarios) {
             const line = scenario.dialogue.find((item) => item.zh.includes(word.simplified))
             if (line) {
@@ -79,7 +89,7 @@ const contextByWord = computed(() => {
     return result
 })
 const prioritizedPool = computed(() => {
-    return [...content.filteredWords]
+    return [...practiceWords.value]
         .sort((left, right) => {
             const leftRecord = progress.records[left.id]
             const rightRecord = progress.records[right.id]
@@ -96,7 +106,22 @@ const prioritizedPool = computed(() => {
 })
 const isCorrect = computed(() => selectedId.value === question.value?.word.id)
 const sessionComplete = computed(() => sessionAnswered.value >= sessionTarget)
-const sessionPercent = computed(() => Math.round((sessionAnswered.value / sessionTarget) * 100))
+const sessionPercent = computed(() => Math.min(100, Math.round((sessionAnswered.value / sessionTarget) * 100)))
+const roundAccuracy = computed(() => Math.round((score.value / sessionTarget) * 100))
+const roundPerformance = computed(() => {
+    return practiceModes
+        .map((mode) => {
+            const results = roundResults.value.filter((result) => result.mode === mode)
+
+            return {
+                mode,
+                label: modeOptions.find((option) => option.value === mode)?.label ?? mode,
+                attempts: results.length,
+                correct: results.filter((result) => result.correct).length,
+            }
+        })
+        .filter((item) => item.attempts > 0)
+})
 const currentModeLabel = computed(() => {
     return modeOptions.find((item) => item.value === question.value?.mode)?.label ?? 'Adaptive mix'
 })
@@ -168,6 +193,7 @@ async function submit() {
     else {
         answerStreak.value = 0
     }
+    roundResults.value.push({ mode: question.value.mode, correct: isCorrect.value })
     await progress.reviewWord(question.value.word, isCorrect.value ? 'good' : 'again', {
         practiceMode: question.value.mode,
     })
@@ -178,6 +204,10 @@ function next() {
     createQuestion()
 }
 
+function showRoundSummary() {
+    roundSummary.value = true
+}
+
 function restart() {
     questionCursor.value += 1
     selectedId.value = ''
@@ -185,6 +215,8 @@ function restart() {
     score.value = 0
     answerStreak.value = 0
     sessionAnswered.value = 0
+    roundSummary.value = false
+    roundResults.value = []
     createQuestion()
 }
 
@@ -193,7 +225,7 @@ function playPrompt() {
         speakMandarin(question.value.word.simplified)
 }
 
-watch([() => content.selectedLevel, selectedMode], restart)
+watch([practiceLevel, selectedMode], restart)
 onMounted(async () => {
     await progress.hydrate()
     createQuestion()
@@ -238,7 +270,7 @@ onMounted(async () => {
                 <div class="progress-track"><i :style="{ width: `${sessionPercent}%` }"></i></div>
             </div>
             <select
-                v-model="content.selectedLevel"
+                v-model="practiceLevel"
                 aria-label="Choose HSK level">
                 <option
                     v-for="option in levelOptions"
@@ -252,6 +284,35 @@ onMounted(async () => {
         <div
             v-if="preparing"
             class="study-empty"><SparklesOutline></SparklesOutline><h3>Preparing adaptive practice…</h3></div>
+
+        <section
+            v-else-if="roundSummary"
+            class="practice-round-summary">
+            <span class="practice-round-summary__icon"><TrophyOutline></TrophyOutline></span>
+            <p class="eyebrow">Round complete</p>
+            <h3>{{ score }}/{{ sessionTarget }} correct · {{ roundAccuracy }}%</h3>
+            <p>You completed ten practice questions. These answers count toward skill statistics, not the separate daily-card route.</p>
+            <div class="practice-round-summary__modes">
+                <span
+                    v-for="item in roundPerformance"
+                    :key="item.mode">
+                    <strong>{{ item.label }}</strong>
+                    <small>{{ item.correct }}/{{ item.attempts }}</small>
+                </span>
+            </div>
+            <div class="practice-round-summary__actions">
+                <button
+                    @click="restart"
+                    class="primary-action"
+                    type="button">
+                    <RefreshOutline></RefreshOutline>
+                    Start another 10-question round
+                </button>
+                <RouterLink
+                    to="/study"
+                    class="secondary-action">Return to Today</RouterLink>
+            </div>
+        </section>
 
         <article
             v-else-if="question"
@@ -337,11 +398,10 @@ onMounted(async () => {
             </button>
             <button
                 v-else
-                @click="restart"
+                @click="showRoundSummary"
                 class="primary-action"
                 type="button">
-                <RefreshOutline></RefreshOutline>
-                New round · {{ score }}/{{ sessionTarget }} correct
+                View round summary
             </button>
         </article>
 

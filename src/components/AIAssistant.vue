@@ -74,7 +74,7 @@ async function send() {
         context: {
             activeWord: content.activeWord,
             activeScenario: content.activeScenario,
-            learnerLevel: content.selectedLevel,
+            learnerLevel: content.activeWord?.level ?? content.activeScenario?.level ?? settings.dailyStudyLevel,
             dueCount: dueCount.value,
             masteredCount: progress.masteredCount,
             recentMistakes: recentMistakes.value,

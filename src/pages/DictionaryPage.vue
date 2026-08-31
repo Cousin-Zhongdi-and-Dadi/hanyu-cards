@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import {
+    computed,
+    nextTick,
+    ref,
+    watch,
+} from 'vue'
 import {
     BookOutline,
     SearchOutline,
     VolumeHighOutline,
 } from '@vicons/ionicons5'
+import type { HskLevel } from '@/types/learning'
+import PaginationControls from '@/components/PaginationControls.vue'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
 import { useSettingsStore } from '@/stores/settings'
@@ -12,15 +19,48 @@ import {
     formatDateTime,
     levelOptions,
     speakMandarin,
+    wordMatchesSearch,
 } from '@/utils/learning'
 
 const content = useContentStore()
 const progress = useProgressStore()
 const settings = useSettingsStore()
+const searchTerm = ref('')
+const selectedLevel = ref<HskLevel | 'all'>('all')
+const page = ref(1)
+const pageSize = 20
+const wordListElement = ref<HTMLElement>()
 
-const visibleWords = computed(() => content.filteredWords.slice(0, 120))
+const filteredWords = computed(() => {
+    return content.words.filter((word) => {
+        const levelMatches = selectedLevel.value === 'all' || word.level === selectedLevel.value
+
+        return levelMatches && wordMatchesSearch(word, searchTerm.value)
+    })
+})
+const visibleWords = computed(() => {
+    const start = (page.value - 1) * pageSize
+
+    return filteredWords.value.slice(start, start + pageSize)
+})
 const activeWord = computed(() => content.activeWord)
 const activeProgress = computed(() => activeWord.value ? progress.records[activeWord.value.id] : undefined)
+
+watch([searchTerm, selectedLevel], () => {
+    page.value = 1
+})
+watch(filteredWords, (words) => {
+    const totalPages = Math.max(1, Math.ceil(words.length / pageSize))
+    if (page.value > totalPages)
+        page.value = totalPages
+    if (words.length && !words.some((word) => word.id === activeWord.value?.id))
+        content.setActiveWord(words[0].id)
+}, { immediate: true })
+watch(page, async () => {
+    await nextTick()
+    if (wordListElement.value)
+        wordListElement.value.scrollTop = 0
+})
 </script>
 
 <template>
@@ -41,13 +81,13 @@ const activeProgress = computed(() => activeWord.value ? progress.records[active
                 <SearchOutline></SearchOutline>
                 <span class="sr-only">Search dictionary</span>
                 <input
-                    v-model="content.searchTerm"
+                    v-model="searchTerm"
                     type="search"
                     placeholder="Search hanzi, pinyin, or English" />
-                <small>{{ content.filteredWords.length }} matches</small>
+                <small>{{ filteredWords.length }} matches</small>
             </label>
             <select
-                v-model="content.selectedLevel"
+                v-model="selectedLevel"
                 aria-label="Choose HSK level">
                 <option
                     v-for="option in levelOptions"
@@ -59,39 +99,49 @@ const activeProgress = computed(() => activeWord.value ? progress.records[active
         </div>
 
         <div class="dictionary-layout">
-            <div class="word-list">
-                <article
-                    v-for="word in visibleWords"
-                    :key="word.id"
-                    @click="content.setActiveWord(word.id)"
-                    @keydown.enter="content.setActiveWord(word.id)"
-                    class="word-row"
-                    :class="{ active: activeWord?.id === word.id }"
-                    tabindex="0">
-                    <div class="word-row__word">
-                        <strong>{{ settings.showTraditional ? word.traditional : word.simplified }}</strong>
-                        <span>{{ word.pinyin }}</span>
-                    </div>
-                    <p>{{ word.english }}</p>
-                    <footer>
-                        <span>HSK {{ word.level }}</span>
-                        <span>{{ progress.records[word.id]?.status ?? 'new' }}</span>
-                        <span>{{ formatDateTime(progress.records[word.id]?.nextReviewAt) }}</span>
-                        <button
-                            @click.stop="speakMandarin(word.simplified)"
-                            type="button"
-                            aria-label="Play pronunciation">
-                            <VolumeHighOutline></VolumeHighOutline>
-                        </button>
-                    </footer>
-                </article>
-                <p
-                    v-if="content.filteredWords.length > visibleWords.length"
-                    class="word-list__limit">Showing the first {{ visibleWords.length }} matches. Refine your search to find a specific word.</p>
+            <div class="word-list-panel">
+                <div
+                    ref="wordListElement"
+                    class="word-list">
+                    <article
+                        v-for="word in visibleWords"
+                        :key="word.id"
+                        @click="content.setActiveWord(word.id)"
+                        @keydown.enter="content.setActiveWord(word.id)"
+                        class="word-row"
+                        :class="{ active: activeWord?.id === word.id }"
+                        tabindex="0">
+                        <div class="word-row__word">
+                            <strong>{{ settings.showTraditional ? word.traditional : word.simplified }}</strong>
+                            <span>{{ word.pinyin }}</span>
+                        </div>
+                        <p>{{ word.english }}</p>
+                        <footer>
+                            <span>HSK {{ word.level }}</span>
+                            <span>{{ progress.records[word.id]?.status ?? 'new' }}</span>
+                            <span>{{ formatDateTime(progress.records[word.id]?.nextReviewAt) }}</span>
+                            <button
+                                @click.stop="speakMandarin(word.simplified)"
+                                type="button"
+                                aria-label="Play pronunciation">
+                                <VolumeHighOutline></VolumeHighOutline>
+                            </button>
+                        </footer>
+                    </article>
+                    <p
+                        v-if="!visibleWords.length"
+                        class="word-list__limit">No words match this search.</p>
+                </div>
+                <PaginationControls
+                    v-model:page="page"
+                    :page-size="pageSize"
+                    :total-items="filteredWords.length"
+                    label="Dictionary results pagination">
+                </PaginationControls>
             </div>
 
             <aside
-                v-if="activeWord"
+                v-if="activeWord && filteredWords.length"
                 class="dictionary-detail">
                 <header>
                     <span>HSK {{ activeWord.level }}</span>

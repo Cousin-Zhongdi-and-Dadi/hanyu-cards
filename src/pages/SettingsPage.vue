@@ -16,8 +16,10 @@ import {
     TodayOutline,
     VolumeHighOutline,
 } from '@vicons/ionicons5'
+import type { HskLevel } from '@/types/learning'
 import { useProgressStore } from '@/stores/progress'
 import { useSettingsStore } from '@/stores/settings'
+import { levelOptions } from '@/utils/learning'
 import {
     hasSecureNativeAssistantEndpoint,
     isNativeApp,
@@ -32,6 +34,10 @@ const transferMessage = ref('')
 const transferError = ref(false)
 const nativeRuntime = isNativeApp()
 const nativeAssistantReady = hasSecureNativeAssistantEndpoint()
+const dailyStudyLevel = computed<HskLevel | 'all'>({
+    get: () => settings.dailyStudyLevel,
+    set: (value) => settings.setDailyStudyLevel(value),
+})
 const savedLabel = computed(() => {
     if (!progress.lastSavedAt)
         return 'No learning activity saved yet'
@@ -212,6 +218,21 @@ async function reset() {
                         class="primary-action"
                         type="submit">Save goal</button>
                 </form>
+                <label class="daily-set-field">
+                    <span>Daily study set</span>
+                    <select
+                        v-model="dailyStudyLevel"
+                        aria-label="Choose the word level for future daily routes">
+                        <option
+                            v-for="option in levelOptions"
+                            :key="option.value"
+                            :value="option.value">
+                            {{ option.label }}
+                        </option>
+                    </select>
+                    <small>This applies when the next daily route is created. A route already started today stays fixed.</small>
+                </label>
+                <p class="daily-goal-note"><strong>What counts?</strong> One rating completes one unique daily card. “Again” still counts for today and also moves the word to your mistake notebook; mastery is tracked separately over repeated reviews.</p>
             </section>
         </div>
 

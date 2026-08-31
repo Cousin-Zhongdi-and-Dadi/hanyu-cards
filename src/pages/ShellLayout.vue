@@ -28,7 +28,9 @@ const navItems = [
 ]
 
 const todayPercent = computed(() => {
-    return Math.min(100, Math.round((progress.todaySession.reviewed / progress.dailyGoal) * 100))
+    return progress.todayPlanGoal
+        ? Math.min(100, Math.round((progress.todayPlanCompletedCount / progress.todayPlanGoal) * 100))
+        : 100
 })
 const currentStreak = computed(() => {
     let streak = 0
@@ -90,10 +92,11 @@ onMounted(async () => {
                 </div>
                 <div
                     class="topbar__meter"
-                    aria-label="Daily progress">
+                    title="Each assigned card counts once after its first rating; repeat practice does not add to this total."
+                    :aria-label="`Daily route: ${progress.todayPlanCompletedCount} of ${progress.todayPlanGoal} unique cards completed`">
                     <span>
-                        <strong>{{ progress.todaySession.reviewed }}/{{ progress.dailyGoal }}</strong>
-                        <small>today</small>
+                        <strong>{{ progress.todayPlanCompletedCount }}/{{ progress.todayPlanGoal }}</strong>
+                        <small>today’s cards</small>
                     </span>
                     <div><i :style="{ width: `${todayPercent}%` }"></i></div>
                 </div>

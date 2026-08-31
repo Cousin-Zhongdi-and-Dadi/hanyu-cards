@@ -20,8 +20,10 @@ interface SendAssistantPayload {
 }
 
 type AssistantConnection = 'agicto' | 'local' | 'mock' | 'ready'
+type ScenarioService = 'idle' | 'waking' | 'ready'
 
 let pendingController: AbortController | undefined
+let warmupPromise: Promise<void> | undefined
 
 function createMessage(role: AssistantMessage['role'], content: string): AssistantMessage {
     return {
@@ -41,6 +43,12 @@ function evaluationEndpoint() {
     const base = import.meta.env.VITE_ASSISTANT_API_URL?.replace(/\/$/, '') ?? ''
 
     return `${base}/api/assistant/evaluate-scenario`
+}
+
+function healthEndpoint() {
+    const base = import.meta.env.VITE_ASSISTANT_API_URL?.replace(/\/$/, '') ?? ''
+
+    return `${base}/health`
 }
 
 function cleanEvaluationList(value: unknown, fallback: string[]) {
@@ -159,6 +167,7 @@ export const useAssistantStore = defineStore('assistant', {
         isOpen: false,
         isLoading: false,
         connection: 'ready' as AssistantConnection,
+        scenarioService: 'idle' as ScenarioService,
         messages: [
             createMessage('assistant', '你好! I am your HanYu tutor. Ask about the current word, practise a real-life mission, or build a short review plan.'),
         ] as AssistantMessage[],
@@ -179,13 +188,41 @@ export const useAssistantStore = defineStore('assistant', {
             ]
             this.connection = 'ready'
         },
+        async warmUp() {
+            if (import.meta.env.MODE === 'test' || !hasSecureNativeAssistantEndpoint() || this.scenarioService === 'ready')
+                return
+            if (warmupPromise)
+                return warmupPromise
+
+            this.scenarioService = 'waking'
+            const controller = new AbortController()
+            const timeout = window.setTimeout(() => controller.abort(), 55_000)
+            warmupPromise = fetch(healthEndpoint(), {
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal,
+            })
+                .then((response) => {
+                    if (!response.ok)
+                        throw new Error(`Assistant health check returned ${response.status}`)
+                    this.scenarioService = 'ready'
+                })
+                .catch(() => {
+                    this.scenarioService = 'idle'
+                })
+                .finally(() => {
+                    window.clearTimeout(timeout)
+                    warmupPromise = undefined
+                })
+
+            return warmupPromise
+        },
         async evaluateScenario(scenario: LearningScenario, learnerResponse: string) {
             const fallback = evaluateScenarioLocally(scenario, learnerResponse)
             if (!hasSecureNativeAssistantEndpoint())
                 return fallback
 
             const controller = new AbortController()
-            const timeout = window.setTimeout(() => controller.abort(), 20_000)
+            const timeout = window.setTimeout(() => controller.abort(), 12_000)
 
             try {
                 const response = await fetch(evaluationEndpoint(), {

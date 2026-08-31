@@ -139,8 +139,8 @@ export function chooseQuizOptions(current: HskWord, pool: HskWord[]) {
     return [...shuffled, current].sort(() => Math.random() - 0.5)
 }
 
-export function dailyPlanKey(date: string, level: HskLevel | 'all') {
-    return `${date}:${level}`
+export function dailyPlanKey(date: string) {
+    return `${date}:all`
 }
 
 export function buildDailyWordIds(

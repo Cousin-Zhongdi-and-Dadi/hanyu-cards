@@ -3,6 +3,9 @@
 import './commands'
 
 beforeEach(() => {
+    cy.intercept('GET', '**/health', {
+        body: { ok: true },
+    })
     cy.intercept('POST', '**/api/assistant/chat', {
         body: { reply: 'Mock tutor response for end-to-end tests.' },
         headers: { 'X-Assistant-Source': 'mock' },

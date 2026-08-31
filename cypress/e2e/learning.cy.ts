@@ -61,7 +61,7 @@ describe('HanYu Cards learning experience', () => {
         cy.get('.daily-plan-strip').should('contain.text', 'Card 2 of 24')
         cy.get('.deck-status > div').eq(0).should('contain.text', '0').and('contain.text', 'reviews due')
         cy.get('.deck-status > div').eq(1).should('contain.text', '2208').and('contain.text', 'new words')
-        cy.get('.deck-status > div').eq(2).should('contain.text', '1').and('contain.text', 'reviewed today')
+        cy.get('.deck-status > div').eq(2).should('contain.text', '1').and('contain.text', 'answers today')
 
         cy.reload()
         cy.get('.daily-plan-strip').should('contain.text', 'Card 2 of 24')
@@ -77,6 +77,7 @@ describe('HanYu Cards learning experience', () => {
         cy.get('.quiz-options button').first().click()
         cy.get('.quiz-panel > .primary-action').click()
         cy.get('.quiz-feedback').should('be.visible')
+        cy.get('.topbar__meter').should('contain.text', '1/24')
     })
 
     it('searches the dictionary and completes a scenario task', () => {
@@ -100,6 +101,49 @@ describe('HanYu Cards learning experience', () => {
         cy.visit('/progress')
         cy.get('.scenario-analytics').should('contain.text', '1/6')
         cy.get('.scenario-score-grid').should('contain.text', 'Best 90/100')
+    })
+
+    it('counts an attempted mission as explored without marking it complete', () => {
+        cy.intercept('POST', '**/api/assistant/evaluate-scenario', {
+            body: {
+                passed: false,
+                score: 48,
+                feedback: 'Good start. Add the remaining mission ideas.',
+                strengths: ['Your name is clear.'],
+                improvements: ['Add where you are from and why you study Chinese.'],
+                source: 'mock',
+                dimensions: {
+                    completeness: 40,
+                    naturalness: 55,
+                    accuracy: 62,
+                },
+                followUp: 'Where are you from, and why do you study Chinese?',
+            },
+            headers: { 'X-Assistant-Source': 'mock' },
+        })
+        cy.visit('/scenarios')
+        cy.get('.scenario-task textarea').type('我叫安娜。')
+        cy.get('.scenario-task > .primary-action').click()
+
+        cy.get('.task-feedback').should('contain.text', 'Needs revision · 22 points to 70')
+        cy.get('.scenario-summary').should('contain.text', '0/6')
+        cy.get('.scenario-list > header').should('contain.text', '17% explored')
+        cy.get('.scenario-tab').first().should('have.class', 'attempted')
+    })
+
+    it('shows a summary after the tenth practice question', () => {
+        cy.visit('/practice')
+        Cypress._.times(10, (index) => {
+            cy.get('.quiz-options button').first().click()
+            cy.get('.quiz-panel > .primary-action').click()
+            if (index < 9)
+                cy.get('.quiz-panel > .primary-action').click()
+        })
+
+        cy.get('.quiz-panel > .primary-action').should('contain.text', 'View round summary').click()
+        cy.get('.practice-round-summary').should('contain.text', 'Round complete')
+        cy.get('.practice-round-summary').should('contain.text', 'Start another 10-question round')
+        cy.get('.topbar__meter').should('contain.text', '0/24')
     })
 
     it('opens the contextual tutor without exposing a provider key', () => {

@@ -5,12 +5,12 @@ Offline-first Mandarin Chinese learning app for adult HSK learners. The app was 
 ## Features
 
 - HSK 1-3 vocabulary set with simplified, traditional, pinyin, English meanings, radicals, tags, and review status.
-- A fixed, resumable daily route that prioritizes due reviews, active mistakes, and high-frequency new words.
+- One fixed, resumable route per day that prioritizes due reviews, active mistakes, and high-frequency new words. Its numerator counts unique assigned cards rated once; repeat practice is tracked separately.
 - Flashcard study with `Again`, `Hard`, `Good`, and `Easy` spaced-review scheduling, plus a focused mistake notebook.
 - Six progressive real-life missions for introductions, dining, shopping, transit, campus teamwork, and clinic visits.
 - Task-based lessons with learning goals, core expressions, bilingual dialogue, pronunciation, culture notes, and Agicto-powered semantic checks with three score dimensions, follow-up prompts, best scores, and an offline fallback.
-- Adaptive practice across meaning, Hanzi recall, pinyin, listening, and dialogue context; weaker modes and mistake words receive priority.
-- Searchable dictionary, daily goal, accuracy, due count, focused study time, seven-day trends, and drill-down vocabulary progress.
+- Adaptive practice across meaning, Hanzi recall, pinyin, listening, and dialogue context; weaker modes and mistake words receive priority, with a clear summary after each 10-question round.
+- Searchable, paginated dictionary plus daily goal, accuracy, due count, focused study time, seven-day trends, and paginated vocabulary progress.
 - Device speech synthesis for Mandarin pronunciation.
 - Offline-first progress storage through IndexedDB/localforage, with JSON backup/restore and a protected reset flow.
 - Personalized learning analytics with a next-step recommendation, seven-day activity, XP, and mission completion.

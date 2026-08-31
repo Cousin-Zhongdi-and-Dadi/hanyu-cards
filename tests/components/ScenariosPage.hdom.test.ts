@@ -64,6 +64,9 @@ describe('page/ScenariosPage', () => {
 
         expect(wrapper.get('.task-feedback').text()).toContain('Good start')
         expect(progress.completedScenarioIds).not.toContain('first-meeting')
+        expect(progress.scenarioProgress['first-meeting'].attempts).toBe(1)
+        expect(wrapper.text()).toContain('17% explored')
+        expect(wrapper.text()).toContain('0/6')
     })
 
     it('uses an Agicto semantic result for a valid answer with different wording', async () => {

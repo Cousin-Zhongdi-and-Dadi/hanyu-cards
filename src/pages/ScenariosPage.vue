@@ -7,6 +7,7 @@ import {
 } from '@vicons/ionicons5'
 import {
     computed,
+    onMounted,
     ref,
     watch,
 } from 'vue'
@@ -15,6 +16,7 @@ import { useAssistantStore } from '@/stores/assistant'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
 import { speakMandarin } from '@/utils/learning'
+import { evaluateScenarioLocally } from '@/utils/scenarioEvaluation'
 
 const assistant = useAssistantStore()
 const content = useContentStore()
@@ -26,7 +28,13 @@ const evaluation = ref<ScenarioEvaluation>()
 
 const activeScenario = computed(() => content.activeScenario)
 const completedCount = computed(() => content.scenarios.filter((scenario) => progress.completedScenarioIds.includes(scenario.id)).length)
-const coursePercent = computed(() => Math.round((completedCount.value / content.scenarios.length) * 100))
+const attemptedCount = computed(() => {
+    return content.scenarios.filter((scenario) => {
+        return Boolean(progress.scenarioProgress[scenario.id]) || progress.completedScenarioIds.includes(scenario.id)
+    }).length
+})
+const completionPercent = computed(() => Math.round((completedCount.value / content.scenarios.length) * 100))
+const exploredPercent = computed(() => Math.round((attemptedCount.value / content.scenarios.length) * 100))
 const activeProgress = computed(() => activeScenario.value ? progress.scenarioProgress[activeScenario.value.id] : undefined)
 const dimensionLabels: Array<{ key: keyof ScenarioEvaluation['dimensions'], label: string }> = [
     { key: 'completeness', label: 'Task coverage' },
@@ -48,7 +56,12 @@ const evaluationSourceLabel = computed(() => {
 watch(() => activeScenario.value?.id, () => {
     response.value = ''
     submitted.value = false
+    checking.value = false
     evaluation.value = undefined
+})
+
+onMounted(() => {
+    void assistant.warmUp()
 })
 
 function chooseScenario(scenarioId: string) {
@@ -60,12 +73,19 @@ async function submitTask() {
     if (checking.value || !response.value.trim() || !activeScenario.value)
         return
 
+    const scenario = activeScenario.value
+    const learnerResponse = response.value.trim()
     checking.value = true
     submitted.value = false
-    evaluation.value = await assistant.evaluateScenario(activeScenario.value, response.value)
+    evaluation.value = evaluateScenarioLocally(scenario, learnerResponse)
+    const finalEvaluation = await assistant.evaluateScenario(scenario, learnerResponse)
+    if (activeScenario.value?.id !== scenario.id)
+        return
+
+    evaluation.value = finalEvaluation
     submitted.value = true
     checking.value = false
-    await progress.recordScenarioAttempt(activeScenario.value.id, evaluation.value)
+    await progress.recordScenarioAttempt(scenario.id, finalEvaluation)
 }
 
 function resetEvaluation() {
@@ -93,7 +113,7 @@ function openTutor() {
                     <FlagOutline></FlagOutline>
                     <span><strong>{{ completedCount }}/{{ content.scenarios.length }}</strong><small>missions complete</small></span>
                 </div>
-                <div class="progress-track"><i :style="{ width: `${coursePercent}%` }"></i></div>
+                <div class="progress-track"><i :style="{ width: `${completionPercent}%` }"></i></div>
             </div>
         </section>
 
@@ -103,7 +123,7 @@ function openTutor() {
                 aria-label="Scenario missions">
                 <header>
                     <p class="eyebrow">Your route</p>
-                    <span>{{ coursePercent }}% explored</span>
+                    <span>{{ exploredPercent }}% explored</span>
                 </header>
                 <button
                     v-for="(scenario, index) in content.scenarios"
@@ -114,6 +134,8 @@ function openTutor() {
                     :class="{
                         active: activeScenario?.id === scenario.id,
                         complete: progress.completedScenarioIds.includes(scenario.id),
+                        attempted: progress.scenarioProgress[scenario.id]
+                            && !progress.completedScenarioIds.includes(scenario.id),
                     }"
                     :aria-current="activeScenario?.id === scenario.id ? 'step' : undefined">
                     <span class="scenario-tab__index">{{ String(index + 1).padStart(2, '0') }}</span>
@@ -260,7 +282,7 @@ function openTutor() {
                     </textarea>
                     <p class="scenario-task__check-note">
                         <SparklesOutline></SparklesOutline>
-                        Agicto checks meaning when connected; an exact-expression check remains available offline.
+                        One submission marks this mission explored. Completion requires all essential ideas and a semantic score of 70 or higher.
                     </p>
                     <button
                         @click="submitTask"
@@ -272,12 +294,30 @@ function openTutor() {
                     </button>
 
                     <div
+                        v-if="checking && evaluation"
+                        class="task-feedback task-feedback--checking"
+                        aria-live="polite">
+                        <div class="task-feedback__summary">
+                            <strong>Quick check ready</strong>
+                            <span>{{ evaluation.score }}/100</span>
+                        </div>
+                        <small>Waiting for Agicto to verify the meaning. The final semantic result will replace this local preview.</small>
+                    </div>
+
+                    <div
                         v-if="submitted && evaluation"
                         class="task-feedback"
                         :class="{ 'task-feedback--complete': evaluation.passed }"
                         aria-live="polite">
                         <div class="task-feedback__summary">
-                            <strong>{{ evaluation.feedback }}</strong>
+                            <div>
+                                <strong>{{ evaluation.passed
+                                    ? 'Mission complete'
+                                    : evaluation.score < 70
+                                        ? `Needs revision · ${70 - evaluation.score} points to 70`
+                                        : 'Needs revision · add every essential idea' }}</strong>
+                                <p>{{ evaluation.feedback }}</p>
+                            </div>
                             <span>{{ evaluation.score }}/100</span>
                         </div>
                         <small class="task-feedback__source">{{ evaluationSourceLabel }}</small>

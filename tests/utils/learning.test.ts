@@ -74,7 +74,7 @@ describe('learning/daily plan', () => {
         }
 
         expect(buildDailyWordIds(words, records, 4, now)).toEqual(['due', 'mistake', 'fresh-high', 'fresh-low'])
-        expect(dailyPlanKey(todayKey(now), 1)).toBe('2026-08-31:1')
+        expect(dailyPlanKey(todayKey(now))).toBe('2026-08-31:all')
     })
 
     it('does not put a word reviewed today back into a new queue', () => {

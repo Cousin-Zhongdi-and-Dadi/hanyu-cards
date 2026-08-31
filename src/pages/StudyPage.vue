@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     computed,
+    onMounted,
     ref,
     watch,
 } from 'vue'
@@ -33,8 +34,15 @@ const reveal = ref(false)
 const preparing = ref(true)
 const planDate = todayKey()
 
-const currentPlanKey = computed(() => dailyPlanKey(planDate, content.selectedLevel))
+const currentPlanKey = computed(() => dailyPlanKey(planDate))
 const currentPlan = computed(() => progress.dailyPlans[currentPlanKey.value])
+const planLevel = computed(() => currentPlan.value?.level ?? settings.dailyStudyLevel)
+const studyWords = computed(() => {
+    return content.words.filter((word) => planLevel.value === 'all' || word.level === planLevel.value)
+})
+const planLevelLabel = computed(() => {
+    return levelOptions.find((option) => option.value === planLevel.value)?.label ?? 'All HSK 1-3'
+})
 const planWords = computed(() => {
     return currentPlan.value?.wordIds
         .map((id) => content.wordsById[id])
@@ -49,13 +57,13 @@ const activeWord = computed(() => remainingWords.value[0])
 const completedCount = computed(() => currentPlan.value?.completedWordIds.length ?? 0)
 const planGoal = computed(() => currentPlan.value?.goal ?? progress.dailyGoal)
 const planPercent = computed(() => {
-    return planGoal.value ? Math.round((completedCount.value / planGoal.value) * 100) : 100
+    return planGoal.value ? Math.min(100, Math.round((completedCount.value / planGoal.value) * 100)) : 100
 })
 const dueCount = computed(() => {
-    return content.filteredWords.filter((word) => isDue(progress.records[word.id], reviewClock.value)).length
+    return studyWords.value.filter((word) => isDue(progress.records[word.id], reviewClock.value)).length
 })
-const newCount = computed(() => content.filteredWords.filter((word) => !progress.records[word.id]).length)
-const reviewedToday = computed(() => progress.todaySession.reviewed)
+const newCount = computed(() => studyWords.value.filter((word) => !progress.records[word.id]).length)
+const answersToday = computed(() => progress.todaySession.reviewed)
 const gradeSummary = computed(() => {
     const results = Object.values(currentPlan.value?.results ?? {})
 
@@ -69,13 +77,16 @@ const gradeSummary = computed(() => {
 async function preparePlan() {
     preparing.value = true
     await progress.hydrate()
+    const existingPlan = progress.dailyPlans[currentPlanKey.value]
+    const level = existingPlan?.level ?? settings.dailyStudyLevel
+    const eligibleWords = content.words.filter((word) => level === 'all' || word.level === level)
     const ids = buildDailyWordIds(
-        content.filteredWords,
+        eligibleWords,
         progress.records,
         progress.dailyGoal,
         reviewClock.value,
     )
-    await progress.ensureDailyPlan(currentPlanKey.value, planDate, content.selectedLevel, ids)
+    await progress.ensureDailyPlan(currentPlanKey.value, planDate, level, ids)
     reveal.value = false
     preparing.value = false
 }
@@ -88,7 +99,7 @@ async function review(grade: ReviewGrade) {
     reveal.value = false
 }
 
-watch(currentPlanKey, preparePlan, { immediate: true })
+onMounted(preparePlan)
 watch(activeWord, (word) => {
     if (word)
         content.setActiveWord(word.id)
@@ -134,22 +145,13 @@ watch(activeWord, (word) => {
                 <span>new words</span>
             </div>
             <div>
-                <strong>{{ reviewedToday }}</strong>
-                <span>reviewed today</span>
+                <strong>{{ answersToday }}</strong>
+                <span>answers today</span>
             </div>
-            <label>
-                <span>Study set</span>
-                <select
-                    v-model="content.selectedLevel"
-                    aria-label="Choose HSK level">
-                    <option
-                        v-for="option in levelOptions"
-                        :key="option.value"
-                        :value="option.value">
-                        {{ option.label }}
-                    </option>
-                </select>
-            </label>
+            <div class="deck-status__scope">
+                <span><small>Today’s fixed set</small><strong>{{ planLevelLabel }}</strong></span>
+                <RouterLink to="/settings">Change tomorrow</RouterLink>
+            </div>
         </section>
 
         <section
@@ -160,7 +162,7 @@ watch(activeWord, (word) => {
                 <strong>{{ remainingWords.length ? `Card ${completedCount + 1} of ${planGoal}` : `${planGoal} of ${planGoal} complete` }}</strong>
             </div>
             <div class="progress-track"><i :style="{ width: `${planPercent}%` }"></i></div>
-            <small>{{ completedCount ? 'Progress saved automatically — you can return anytime.' : 'Due reviews and recent mistakes come first.' }}</small>
+            <small>{{ completedCount ? 'Progress saved automatically — repeat practice will not increase this count.' : 'One rating completes today’s card; Again also sends it to your mistake notebook.' }}</small>
         </section>
 
         <div
@@ -197,6 +199,23 @@ watch(activeWord, (word) => {
                 <span><strong>{{ gradeSummary.needsWork }}</strong> to revisit</span>
                 <span><strong>{{ gradeSummary.xp }}</strong> XP</span>
             </div>
+            <details
+                v-if="planWords.length"
+                class="today-word-review">
+                <summary>Review today’s {{ planWords.length }} words</summary>
+                <p>These are the unique cards counted in {{ completedCount }}/{{ planGoal }}. Opening them again will not increase the daily route.</p>
+                <div class="today-word-review__grid">
+                    <RouterLink
+                        v-for="word in planWords"
+                        :key="word.id"
+                        @click="content.setActiveWord(word.id)"
+                        to="/dictionary">
+                        <strong>{{ settings.showTraditional ? word.traditional : word.simplified }}</strong>
+                        <span>{{ word.pinyin }}</span>
+                        <small>{{ currentPlan?.results[word.id] ?? 'viewed' }}</small>
+                    </RouterLink>
+                </div>
+            </details>
             <div class="study-complete-card__actions">
                 <RouterLink
                     to="/mistakes"

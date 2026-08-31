@@ -177,6 +177,11 @@
   background: rgba(239, 248, 233, .7);
 }
 
+.scenario-tab.attempted:not(.active) {
+  color: var(--ink-soft);
+  background: rgba(255, 239, 199, .58);
+}
+
 .scenario-tab__index {
   z-index: 1;
   display: grid;
@@ -599,6 +604,19 @@
   border-radius: 999px;
 }
 
+.task-feedback__summary > div {
+  display: grid;
+  gap: 4px;
+}
+
+.task-feedback__summary p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: .78rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .task-feedback > .task-feedback__source {
   color: currentcolor;
   font-size: .66rem;
@@ -707,6 +725,12 @@
   color: #4f813c;
   background: #edf7e8;
   border-left-color: var(--leaf);
+}
+
+.task-feedback--checking {
+  color: var(--jade-900);
+  background: var(--jade-50);
+  border-left-color: var(--jade-700);
 }
 
 .task-feedback > p {

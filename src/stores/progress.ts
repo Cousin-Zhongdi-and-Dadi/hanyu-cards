@@ -14,6 +14,7 @@ import type {
     WordProgress,
 } from '@/types/learning'
 import {
+    dailyPlanKey,
     gradeToIntervalDays,
     nextStatus,
     todayKey,
@@ -236,6 +237,28 @@ function sanitizeDailyPlans(value: unknown) {
     return result
 }
 
+function canonicalizeDailyPlans(plans: Record<string, DailyStudyPlan>) {
+    const result = { ...plans }
+    const dates = [...new Set(Object.values(plans).map((plan) => plan.date))]
+
+    dates.forEach((date) => {
+        const key = dailyPlanKey(date)
+        if (result[key])
+            return
+
+        const candidate = Object.values(plans)
+            .filter((plan) => plan.date === date)
+            .sort((left, right) => {
+                return right.completedWordIds.length - left.completedWordIds.length
+                    || left.createdAt.localeCompare(right.createdAt)
+            })[0]
+        if (candidate)
+            result[key] = { ...candidate, key }
+    })
+
+    return result
+}
+
 function normalizeProgress(value: unknown, requireCore = false): ProgressBackupState {
     if (!isRecord(value) || (requireCore && (!isRecord(value.records) || !Array.isArray(value.sessions))))
         throw new Error('This file does not contain a valid HanYu Cards progress backup.')
@@ -247,7 +270,7 @@ function normalizeProgress(value: unknown, requireCore = false): ProgressBackupS
         completedScenarioIds: Array.isArray(value.completedScenarioIds)
             ? [...new Set(value.completedScenarioIds.filter((id): id is string => typeof id === 'string'))].slice(0, 100)
             : [],
-        dailyPlans: sanitizeDailyPlans(value.dailyPlans),
+        dailyPlans: canonicalizeDailyPlans(sanitizeDailyPlans(value.dailyPlans)),
         practiceStats: sanitizePracticeStats(value.practiceStats),
         scenarioProgress: sanitizeScenarioProgress(value.scenarioProgress),
         lastSavedAt: safeDate(value.lastSavedAt),
@@ -275,6 +298,15 @@ export const useProgressStore = defineStore('progress', {
                 xp: 0,
                 studySeconds: 0,
             }
+        },
+        todayPlan(state): DailyStudyPlan | undefined {
+            return state.dailyPlans[dailyPlanKey(todayKey())]
+        },
+        todayPlanCompletedCount(state) {
+            return state.dailyPlans[dailyPlanKey(todayKey())]?.completedWordIds.length ?? 0
+        },
+        todayPlanGoal(state) {
+            return state.dailyPlans[dailyPlanKey(todayKey())]?.goal ?? state.dailyGoal
         },
         masteredCount(state) {
             return Object.values(state.records).filter((record) => record.status === 'mastered').length

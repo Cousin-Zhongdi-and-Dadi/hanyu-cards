@@ -46,7 +46,7 @@ describe('store/progress learning loop', () => {
         const content = useContentStore()
         const progress = useProgressStore()
         progress.dailyGoal = 2
-        const key = dailyPlanKey(todayKey(), 'all')
+        const key = dailyPlanKey(todayKey())
 
         await progress.ensureDailyPlan(key, todayKey(), 'all', content.words.slice(0, 3).map((word) => word.id))
         await progress.ensureDailyPlan(key, todayKey(), 'all', content.words.slice(3, 6).map((word) => word.id))
@@ -59,7 +59,7 @@ describe('store/progress learning loop', () => {
         const content = useContentStore()
         const progress = useProgressStore()
         const target = content.words[0]
-        const key = dailyPlanKey(todayKey(), 'all')
+        const key = dailyPlanKey(todayKey())
         await progress.ensureDailyPlan(key, todayKey(), 'all', [target.id])
 
         await progress.reviewWord(target, 'again', { dailyPlanKey: key })
@@ -69,12 +69,50 @@ describe('store/progress learning loop', () => {
             needsMistakeReview: true,
         })
         expect(progress.dailyPlans[key].completedWordIds).toEqual([target.id])
+        expect(progress.todayPlanCompletedCount).toBe(1)
 
         await progress.reviewWord(target, 'good', { practiceMode: 'meaning', resolveMistake: true })
 
         expect(progress.records[target.id].needsMistakeReview).toBe(false)
         expect(progress.practiceStats.meaning).toEqual({ attempts: 1, correct: 1 })
         expect(progress.todaySession.reviewed).toBe(2)
+        expect(progress.todayPlanCompletedCount).toBe(1)
+    })
+
+    it('migrates a legacy level-specific plan into the canonical daily route', async () => {
+        const content = useContentStore()
+        const progress = useProgressStore()
+        const date = todayKey()
+        const legacyKey = `${date}:2`
+        const wordIds = content.words.filter((word) => word.level === 2).slice(0, 2).map((word) => word.id)
+
+        await progress.importProgress({
+            records: {},
+            sessions: [],
+            dailyGoal: 24,
+            completedScenarioIds: [],
+            dailyPlans: {
+                [legacyKey]: {
+                    key: legacyKey,
+                    date,
+                    level: 2,
+                    goal: 2,
+                    wordIds,
+                    completedWordIds: [wordIds[0]],
+                    results: { [wordIds[0]]: 'good' },
+                    createdAt: new Date().toISOString(),
+                },
+            },
+            practiceStats: {},
+            scenarioProgress: {},
+        })
+
+        expect(progress.todayPlan).toMatchObject({
+            key: dailyPlanKey(date),
+            level: 2,
+            completedWordIds: [wordIds[0]],
+        })
+        expect(progress.todayPlanCompletedCount).toBe(1)
     })
 
     it('records every mission attempt while preserving the best multidimensional score', async () => {
