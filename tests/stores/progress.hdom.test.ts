@@ -55,6 +55,31 @@ describe('store/progress learning loop', () => {
         expect(progress.dailyPlans[key].completedWordIds).toEqual([])
     })
 
+    it('rebuilds an unstarted route for a chosen goal but keeps a started route fixed', async () => {
+        const content = useContentStore()
+        const progress = useProgressStore()
+        const key = dailyPlanKey(todayKey())
+        const candidates = content.words.slice(0, 30).map((word) => word.id)
+
+        await progress.ensureDailyPlan(key, todayKey(), 'all', candidates)
+        expect(progress.todayPlanGoal).toBe(24)
+
+        await progress.setDailyGoal(12)
+        expect(progress.todayPlan).toBeUndefined()
+        expect(progress.todayPlanGoal).toBe(12)
+
+        await progress.ensureDailyPlan(key, todayKey(), 'all', candidates)
+        const firstPlannedWord = content.words.find((word) => word.id === progress.todayPlan?.wordIds[0])
+        if (!firstPlannedWord)
+            throw new Error('Expected the rebuilt daily route to contain a word')
+        await progress.reviewWord(firstPlannedWord, 'good', { dailyPlanKey: key })
+        await progress.setDailyGoal(8)
+
+        expect(progress.dailyGoal).toBe(8)
+        expect(progress.todayPlanGoal).toBe(12)
+        expect(progress.todayPlanCompletedCount).toBe(1)
+    })
+
     it('moves an incorrect word into focused review and clears it after successful recovery', async () => {
         const content = useContentStore()
         const progress = useProgressStore()
@@ -129,6 +154,27 @@ describe('store/progress learning loop', () => {
             followUp: 'Follow-up for 72',
         })
         expect(progress.scenarioProgress['first-meeting'].bestDimensions.completeness).toBe(88)
+    })
+
+    it('tracks unique extra words separately from the fixed daily route', async () => {
+        const content = useContentStore()
+        const progress = useProgressStore()
+        const [firstWord, secondWord] = content.words.slice(-2)
+
+        await progress.reviewWord(firstWord, 'good', { trackExtraWord: true })
+        await progress.reviewWord(firstWord, 'hard', { trackExtraWord: true })
+        await progress.reviewWord(secondWord, 'again', { trackExtraWord: true })
+
+        expect(progress.todaySession.reviewed).toBe(3)
+        expect(progress.todaySession.extraWordIds).toEqual([firstWord.id, secondWord.id])
+        expect(progress.todayExtraWordCount).toBe(2)
+        expect(progress.todayPlanCompletedCount).toBe(0)
+
+        const backup = progress.exportProgress()
+        setActivePinia(createPinia())
+        const restored = useProgressStore()
+        await restored.importProgress(backup)
+        expect(restored.todayExtraWordCount).toBe(2)
     })
 
     it('round-trips the expanded progress model through a backup', async () => {

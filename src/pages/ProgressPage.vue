@@ -232,7 +232,7 @@ watch(wordPage, async () => {
 
         <div class="stats-grid">
             <article><i><SparklesOutline></SparklesOutline></i><div><span>{{ progress.todayPlanCompletedCount }}/{{ progress.todayPlanGoal }}</span><p>daily cards complete</p></div></article>
-            <article><i><BookOutline></BookOutline></i><div><span>{{ progress.todaySession.reviewed }}</span><p>answers today</p></div></article>
+            <article><i><BookOutline></BookOutline></i><div><span>{{ progress.todaySession.reviewed }}</span><p>answers today<span v-if="progress.todayExtraWordCount"> · {{ progress.todayExtraWordCount }} extra word{{ progress.todayExtraWordCount === 1 ? '' : 's' }}</span></p></div></article>
             <article><i><CheckmarkCircleOutline></CheckmarkCircleOutline></i><div><span>{{ progress.accuracy }}%</span><p>accuracy</p></div></article>
             <article><i><TrophyOutline></TrophyOutline></i><div><span>{{ progress.masteredCount }}</span><p>mastered</p></div></article>
             <article><i><TimeOutline></TimeOutline></i><div><span>{{ dueCount }}</span><p>due now</p></div></article>

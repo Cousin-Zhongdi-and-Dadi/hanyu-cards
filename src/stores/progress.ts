@@ -35,6 +35,7 @@ interface ReviewOptions {
     dailyPlanKey?: string
     practiceMode?: PracticeMode
     resolveMistake?: boolean
+    trackExtraWord?: boolean
 }
 
 const STORE_KEY = 'hanyu-progress-v1'
@@ -134,6 +135,9 @@ function sanitizeSessions(value: unknown) {
                 correct: Math.round(safeNumber(item.correct)),
                 xp: Math.round(safeNumber(item.xp)),
                 studySeconds: Math.round(safeNumber(item.studySeconds, 0, 0, 86_400)),
+                extraWordIds: Array.isArray(item.extraWordIds)
+                    ? [...new Set(item.extraWordIds.filter((id): id is string => typeof id === 'string'))].slice(0, 120)
+                    : [],
             }
         })
         .filter((item): item is StudySession => Boolean(item))
@@ -297,6 +301,7 @@ export const useProgressStore = defineStore('progress', {
                 correct: 0,
                 xp: 0,
                 studySeconds: 0,
+                extraWordIds: [],
             }
         },
         todayPlan(state): DailyStudyPlan | undefined {
@@ -307,6 +312,9 @@ export const useProgressStore = defineStore('progress', {
         },
         todayPlanGoal(state) {
             return state.dailyPlans[dailyPlanKey(todayKey())]?.goal ?? state.dailyGoal
+        },
+        todayExtraWordCount(state) {
+            return state.sessions.find((session) => session.date === todayKey())?.extraWordIds?.length ?? 0
         },
         masteredCount(state) {
             return Object.values(state.records).filter((record) => record.status === 'mastered').length
@@ -445,12 +453,14 @@ export const useProgressStore = defineStore('progress', {
             const date = todayKey()
             let session = this.sessions.find((item) => item.date === date)
             if (!session) {
-                session = { date, reviewed: 0, correct: 0, xp: 0, studySeconds: 0 }
+                session = { date, reviewed: 0, correct: 0, xp: 0, studySeconds: 0, extraWordIds: [] }
                 this.sessions.push(session)
             }
             session.reviewed += 1
             session.correct += isCorrect ? 1 : 0
             session.xp += xpByGrade[grade]
+            if (options.trackExtraWord && !session.extraWordIds?.includes(word.id))
+                session.extraWordIds = [...(session.extraWordIds ?? []), word.id]
 
             const plan = options.dailyPlanKey ? this.dailyPlans[options.dailyPlanKey] : undefined
             if (plan?.wordIds.includes(word.id) && !plan.completedWordIds.includes(word.id)) {
@@ -484,14 +494,22 @@ export const useProgressStore = defineStore('progress', {
             const date = todayKey()
             let session = this.sessions.find((item) => item.date === date)
             if (!session) {
-                session = { date, reviewed: 0, correct: 0, xp: 0, studySeconds: 0 }
+                session = { date, reviewed: 0, correct: 0, xp: 0, studySeconds: 0, extraWordIds: [] }
                 this.sessions.push(session)
             }
             session.studySeconds = (session.studySeconds ?? 0) + increment
             await this.persist()
         },
         async setDailyGoal(value: number) {
-            this.dailyGoal = Math.max(5, Math.min(120, Math.round(value)))
+            const numericGoal = Number(value)
+            const nextGoal = Number.isFinite(numericGoal)
+                ? Math.max(5, Math.min(120, Math.round(numericGoal)))
+                : this.dailyGoal
+            const planKey = dailyPlanKey(todayKey())
+            const plan = this.dailyPlans[planKey]
+            if (plan && plan.goal !== nextGoal && plan.completedWordIds.length === 0)
+                delete this.dailyPlans[planKey]
+            this.dailyGoal = nextGoal
             await this.persist()
         },
         async recordScenarioAttempt(scenarioId: string, evaluation: ScenarioEvaluation) {

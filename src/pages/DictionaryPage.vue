@@ -190,7 +190,7 @@ watch(page, async () => {
                         :key="tag">{{ tag }}</span>
                 </div>
                 <RouterLink
-                    to="/study"
+                    :to="{ name: 'study', query: { word: activeWord.id } }"
                     class="primary-action">
                     <BookOutline></BookOutline>
                     Study this word

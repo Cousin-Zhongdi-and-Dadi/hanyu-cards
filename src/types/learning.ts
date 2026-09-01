@@ -44,6 +44,7 @@ export interface StudySession {
     correct: number
     xp: number
     studySeconds?: number
+    extraWordIds?: string[]
 }
 
 export type PracticeMode = 'meaning' | 'hanzi' | 'pinyin' | 'listening' | 'context'

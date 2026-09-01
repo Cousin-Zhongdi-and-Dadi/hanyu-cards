@@ -105,7 +105,7 @@
 
 .scenario-list {
   position: sticky;
-  top: 16px;
+  top: var(--sticky-header-offset);
   display: grid;
   gap: 8px;
   padding: 16px;

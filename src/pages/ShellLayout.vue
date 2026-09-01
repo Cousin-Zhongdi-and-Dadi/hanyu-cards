@@ -90,16 +90,17 @@ onMounted(async () => {
                         <small>day streak</small>
                     </span>
                 </div>
-                <div
+                <RouterLink
+                    to="/settings"
                     class="topbar__meter"
-                    title="Each assigned card counts once after its first rating; repeat practice does not add to this total."
-                    :aria-label="`Daily route: ${progress.todayPlanCompletedCount} of ${progress.todayPlanGoal} unique cards completed`">
+                    title="Open settings to choose your daily goal. An unstarted route updates immediately; a route already in progress stays fixed."
+                    :aria-label="`Daily route: ${progress.todayPlanCompletedCount} of ${progress.todayPlanGoal} assigned cards completed${progress.todayExtraWordCount ? `, plus ${progress.todayExtraWordCount} extra words` : ''}. Open daily goal settings.`">
                     <span>
                         <strong>{{ progress.todayPlanCompletedCount }}/{{ progress.todayPlanGoal }}</strong>
-                        <small>today’s cards</small>
+                        <small>today’s cards<em v-if="progress.todayExtraWordCount">+{{ progress.todayExtraWordCount }} extra</em></small>
                     </span>
                     <div><i :style="{ width: `${todayPercent}%` }"></i></div>
-                </div>
+                </RouterLink>
                 <RouterLink
                     to="/settings"
                     class="topbar__settings"

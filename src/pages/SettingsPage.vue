@@ -202,11 +202,11 @@ async function reset() {
                         <h3>Review goal</h3>
                     </div>
                 </header>
-                <p>Pick a target you can keep even on a busy day. Consistency beats intensity.</p>
+                <p>The first-run value of 24 is only a starter default, not a required optimum. Choose a target from 5 to 120 that fits your pace. An unstarted route updates immediately; after the first assigned card, the new value applies to the next route.</p>
                 <form
                     @submit.prevent="saveGoal"
                     class="goal-form">
-                    <label for="daily-goal">Cards per day</label>
+                    <label for="daily-goal">Cards in each new daily route</label>
                     <input
                         id="daily-goal"
                         v-model.number="goal"
@@ -216,7 +216,7 @@ async function reset() {
                         step="1" />
                     <button
                         class="primary-action"
-                        type="submit">Save goal</button>
+                        type="submit">Save daily goal</button>
                 </form>
                 <label class="daily-set-field">
                     <span>Daily study set</span>
@@ -232,7 +232,7 @@ async function reset() {
                     </select>
                     <small>This applies when the next daily route is created. A route already started today stays fixed.</small>
                 </label>
-                <p class="daily-goal-note"><strong>What counts?</strong> One rating completes one unique daily card. “Again” still counts for today and also moves the word to your mistake notebook; mastery is tracked separately over repeated reviews.</p>
+                <p class="daily-goal-note"><strong>What counts?</strong> One rating completes one assigned daily card. “Again” still counts and also moves the word to your mistake notebook. A new word opened separately from Words appears as extra study and enters future review without enlarging today’s fixed route.</p>
             </section>
         </div>
 

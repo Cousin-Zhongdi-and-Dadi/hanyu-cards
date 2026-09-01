@@ -52,6 +52,47 @@ describe('HanYu Cards learning experience', () => {
         cy.get('.progress-hero').should('contain.text', 'Small steps')
     })
 
+    it('keeps the top navigation visible while the page scrolls', () => {
+        cy.visit('/dictionary')
+        cy.get('.topbar').should('have.css', 'position', 'sticky')
+        cy.scrollTo('bottom')
+        cy.get('.topbar').then(($topbar) => {
+            const top = $topbar[0].getBoundingClientRect().top
+
+            expect(top).to.be.gte(0)
+            expect(top).to.be.lessThan(24)
+        })
+    })
+
+    it('lets the learner choose a daily goal before starting the route', () => {
+        cy.get('.topbar__meter').should('have.attr', 'href', '/settings').click()
+        cy.location('pathname').should('equal', '/settings')
+        cy.get('#daily-goal').clear().type('12')
+        cy.get('.goal-form').submit()
+        cy.get('.topbar__meter').should('contain.text', '0/12')
+
+        cy.reload()
+        cy.get('#daily-goal').should('have.value', '12')
+        cy.get('.topbar__meter').should('contain.text', '0/12')
+        cy.get('.settings-card--goal').should('contain.text', 'unstarted route updates immediately')
+    })
+
+    it('opens the selected dictionary word in focused study', () => {
+        cy.visit('/dictionary')
+        cy.get('.search-box input').type('爱')
+        cy.get('.word-row').first().click()
+        cy.get('.dictionary-detail').should('contain.text', '爱').contains('Study this word').click()
+
+        cy.location('pathname').should('equal', '/study')
+        cy.location('search').should('contain', 'word=')
+        cy.get('.focused-study-strip').should('contain.text', '爱').and('contain.text', 'does not change')
+        cy.get('.word-card__hanzi').should('contain.text', '爱')
+        cy.get('.word-card__reveal .primary-action').click()
+        cy.get('.review-button--good').click()
+        cy.get('.focused-study-complete').should('contain.text', 'daily-card count remains 0/24')
+        cy.get('.topbar__meter').should('contain.text', '0/24').and('contain.text', '+1 extra')
+    })
+
     it('reviews a word and completes a practice question', () => {
         cy.visit('/study')
         cy.get('.word-card > .word-card__reveal .primary-action').click()

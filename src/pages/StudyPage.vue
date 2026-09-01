@@ -12,6 +12,7 @@ import {
     RefreshOutline,
     SparklesOutline,
 } from '@vicons/ionicons5'
+import { useRoute } from 'vue-router'
 import type { ReviewGrade } from '@/types/learning'
 import WordCard from '@/components/WordCard.vue'
 import { useReviewClock } from '@/composables/useReviewClock'
@@ -29,9 +30,11 @@ import {
 const content = useContentStore()
 const progress = useProgressStore()
 const settings = useSettingsStore()
+const route = useRoute()
 const reviewClock = useReviewClock()
 const reveal = ref(false)
 const preparing = ref(true)
+const focusedReviewed = ref(false)
 const planDate = todayKey()
 
 const currentPlanKey = computed(() => dailyPlanKey(planDate))
@@ -53,7 +56,14 @@ const remainingWords = computed(() => {
 
     return planWords.value.filter((word) => !completed.has(word.id))
 })
-const activeWord = computed(() => remainingWords.value[0])
+const dailyActiveWord = computed(() => remainingWords.value[0])
+const focusedWordId = computed(() => typeof route.query.word === 'string' ? route.query.word : '')
+const focusedWord = computed(() => content.words.find((word) => word.id === focusedWordId.value))
+const isFocusedStudy = computed(() => Boolean(focusedWord.value))
+const focusedWordInPlan = computed(() => {
+    return Boolean(focusedWord.value && currentPlan.value?.wordIds.includes(focusedWord.value.id))
+})
+const displayedWord = computed(() => focusedWord.value ?? dailyActiveWord.value)
 const completedCount = computed(() => currentPlan.value?.completedWordIds.length ?? 0)
 const planGoal = computed(() => currentPlan.value?.goal ?? progress.dailyGoal)
 const planPercent = computed(() => {
@@ -92,17 +102,33 @@ async function preparePlan() {
 }
 
 async function review(grade: ReviewGrade) {
-    if (!activeWord.value)
+    if (!displayedWord.value)
         return
 
-    await progress.reviewWord(activeWord.value, grade, { dailyPlanKey: currentPlanKey.value })
+    const options = isFocusedStudy.value
+        ? focusedWordInPlan.value
+            ? { dailyPlanKey: currentPlanKey.value }
+            : { trackExtraWord: true }
+        : { dailyPlanKey: currentPlanKey.value }
+    await progress.reviewWord(displayedWord.value, grade, options)
+    if (isFocusedStudy.value)
+        focusedReviewed.value = true
+    reveal.value = false
+}
+
+function repeatFocusedWord() {
+    focusedReviewed.value = false
     reveal.value = false
 }
 
 onMounted(preparePlan)
-watch(activeWord, (word) => {
+watch(displayedWord, (word) => {
     if (word)
         content.setActiveWord(word.id)
+}, { immediate: true })
+watch(focusedWordId, () => {
+    focusedReviewed.value = false
+    reveal.value = false
 })
 </script>
 
@@ -146,7 +172,7 @@ watch(activeWord, (word) => {
             </div>
             <div>
                 <strong>{{ answersToday }}</strong>
-                <span>answers today</span>
+                <span>answers today<small v-if="progress.todayExtraWordCount">+{{ progress.todayExtraWordCount }} extra word{{ progress.todayExtraWordCount === 1 ? '' : 's' }}</small></span>
             </div>
             <div class="deck-status__scope">
                 <span><small>Today’s fixed set</small><strong>{{ planLevelLabel }}</strong></span>
@@ -155,7 +181,7 @@ watch(activeWord, (word) => {
         </section>
 
         <section
-            v-if="!preparing && currentPlan"
+            v-if="!preparing && currentPlan && !isFocusedStudy"
             class="daily-plan-strip">
             <div>
                 <span>Daily route</span>
@@ -163,6 +189,22 @@ watch(activeWord, (word) => {
             </div>
             <div class="progress-track"><i :style="{ width: `${planPercent}%` }"></i></div>
             <small>{{ completedCount ? 'Progress saved automatically — repeat practice will not increase this count.' : 'One rating completes today’s card; Again also sends it to your mistake notebook.' }}</small>
+        </section>
+
+        <section
+            v-else-if="!preparing && focusedWord"
+            class="focused-study-strip">
+            <SparklesOutline></SparklesOutline>
+            <div>
+                <span>Selected from Words</span>
+                <strong>{{ settings.showTraditional ? focusedWord.traditional : focusedWord.simplified }} · {{ focusedWord.pinyin }}</strong>
+                <small>{{ focusedWordInPlan
+                    ? 'This word is already in today’s route. Its first rating completes that assigned card; repeat ratings do not add more.'
+                    : 'This focused review updates memory and records one extra word, but it does not change your fixed daily-card route.' }}</small>
+            </div>
+            <RouterLink
+                :to="{ name: 'study' }"
+                class="secondary-action">Return to Today</RouterLink>
         </section>
 
         <div
@@ -173,16 +215,44 @@ watch(activeWord, (word) => {
         </div>
 
         <WordCard
-            v-else-if="activeWord"
-            :key="activeWord.id"
+            v-else-if="displayedWord && !focusedReviewed"
+            :key="`${isFocusedStudy ? 'focus' : 'daily'}-${displayedWord.id}`"
             @reveal="reveal = true"
             @review="review"
-            :word="activeWord"
-            :progress="progress.records[activeWord.id]"
+            :word="displayedWord"
+            :progress="progress.records[displayedWord.id]"
             :reveal="reveal"
             :tts-enabled="settings.ttsEnabled"
             :show-traditional="settings.showTraditional">
         </WordCard>
+
+        <section
+            v-else-if="focusedWord && focusedReviewed"
+            class="study-complete-card focused-study-complete">
+            <span class="study-complete-card__icon"><CheckmarkCircleOutline></CheckmarkCircleOutline></span>
+            <p class="eyebrow">Focused review saved</p>
+            <h3>{{ settings.showTraditional ? focusedWord.traditional : focusedWord.simplified }} · {{ focusedWord.pinyin }}</h3>
+            <p v-if="focusedWordInPlan">Your memory record and answer statistics were updated. Because this word belongs to today’s assigned route, its first rating can complete that card. Daily progress is now {{ completedCount }}/{{ planGoal }}.</p>
+            <p v-else>Your memory record and answer statistics were updated, and this is recorded as +1 extra word. Today’s fixed daily-card count remains {{ completedCount }}/{{ planGoal }}.</p>
+            <div class="study-complete-card__actions">
+                <button
+                    @click="repeatFocusedWord"
+                    type="button"
+                    class="secondary-action">
+                    <RefreshOutline></RefreshOutline>
+                    Study again
+                </button>
+                <RouterLink
+                    to="/dictionary"
+                    class="secondary-action">Back to Words</RouterLink>
+                <RouterLink
+                    :to="{ name: 'study' }"
+                    class="primary-action">
+                    Continue Today
+                    <ArrowForwardOutline></ArrowForwardOutline>
+                </RouterLink>
+            </div>
+        </section>
 
         <section
             v-else
