@@ -17,6 +17,10 @@ const settings = useSettingsStore()
 const reveal = ref(false)
 const cursor = ref(0)
 
+const queuePosition = computed(() => {
+    return studyQueue.value.length === 0 ? 0 : cursor.value + 1
+})
+
 const studyQueue = computed(() => {
     const words = content.filteredWords
     const due = words.filter((word) => isDue(progress.records[word.id]))
@@ -74,6 +78,16 @@ async function review(grade: ReviewGrade) {
             <span>语</span>
             <span>学</span>
             <span>习</span>
+        </div>
+
+        <div
+            v-if="activeWord"
+            class="study-progress"
+            aria-label="Study queue progress">
+            <span>{{ queuePosition }} / {{ studyQueue.length }} cards</span>
+            <div class="progress-track">
+                <i :style="{ width: `${studyQueue.length ? (queuePosition / studyQueue.length) * 100 : 0}%` }"></i>
+            </div>
         </div>
 
         <WordCard
