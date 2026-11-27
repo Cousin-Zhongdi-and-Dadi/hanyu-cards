@@ -123,6 +123,18 @@ try {
     await context.setOffline(true)
     await page.goto(`${baseURL}/dictionary`)
     await page.getByRole('heading', { name: /Your pocket Mandarin/, exact: true }).waitFor()
+    const offlineBackground = await page.evaluate(async () => {
+        const response = await fetch('/main-page-background.jpg', { cache: 'no-store' })
+        return {
+            status: response.status,
+            contentType: response.headers.get('content-type'),
+            bytes: Array.from(new Uint8Array(await response.arrayBuffer())),
+        }
+    })
+    assert.equal(offlineBackground.status, 200)
+    assert.equal(offlineBackground.contentType, 'image/jpeg')
+    const bundledBackground = await readFile(new URL('../public/main-page-background.jpg', import.meta.url))
+    assert.ok(Buffer.from(offlineBackground.bytes).equals(bundledBackground), 'The offline background must match the bundled JPEG')
     await page.getByPlaceholder('Search hanzi, pinyin, or English', { exact: true }).fill('hello')
     assert.ok(await page.locator('.word-row').count() > 0, 'Offline dictionary should remain searchable')
     await page.goto(`${baseURL}/study`)
@@ -132,7 +144,7 @@ try {
     await page.reload()
     await page.waitForFunction(() => document.querySelector('.topbar__meter strong')?.textContent === '2/24')
     await context.setOffline(false)
-    console.log('Browser acceptance: service worker isolation and offline persistence passed')
+    console.log('Browser acceptance: service worker isolation, offline background and offline persistence passed')
 
     // New daily-route and recovery behavior must survive full navigation and writes.
     await page.getByRole('button', { name: 'Reveal meaning', exact: true }).click()

@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
             workbox: {
                 navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/healthz$/],
             },
-            includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'privacy.html'],
+            includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'privacy.html', 'main-page-background.jpg'],
             manifest: {
                 name: 'HanYu Cards',
                 short_name: 'HanYu',
