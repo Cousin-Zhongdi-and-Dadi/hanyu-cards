@@ -4,6 +4,7 @@ import {
     ref,
     watch,
 } from 'vue'
+import { VolumeHighOutline } from '@vicons/ionicons5'
 import { useContentStore } from '@/stores/content'
 import { useProgressStore } from '@/stores/progress'
 import {
@@ -73,9 +74,10 @@ function next() {
             class="quiz-panel">
             <button
                 @click="speakMandarin(current.simplified)"
-                class="quiz-panel__audio"
-                type="button">
-                Hear word
+                class="word-card__audio"
+                type="button"
+                aria-label="Play pronunciation">
+                <VolumeHighOutline></VolumeHighOutline>
             </button>
             <div class="quiz-panel__hanzi">{{ current.simplified }}</div>
             <div class="quiz-panel__pinyin">{{ current.pinyin }}</div>
